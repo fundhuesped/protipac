@@ -28,7 +28,9 @@ $formulario="pacientes";
 
 $accion=$_POST['accion'];
 $titulo_pagina="Listado de pacientes";
-$buscar_paciente=$_POST['buscar_paciente'];
+$buscar_nombre=$_POST['buscar_nombre'];
+$buscar_apellido=$_POST['buscar_apellido'];
+$buscar_documento=$_POST['buscar_documento'];
 $buscar_hc=$_POST['buscar_hc'];
 $buscar_iniciales=$_POST['buscar_iniciales'];
 $buscar_protocolo=$_POST['buscar_protocolo'];
@@ -42,7 +44,9 @@ if($v!=1){
 	/*guardar parametros búsqueda*/
 	$_SESSION['buscar_protocolo']=$buscar_protocolo;
 	$_SESSION['buscar_hc']=$buscar_hc;
-	$_SESSION['buscar_paciente']=$buscar_paciente;
+	$_SESSION['buscar_nombre']=$buscar_nombre;
+	$_SESSION['buscar_apellido']=$buscar_apellido;
+	$_SESSION['buscar_documento']=$buscar_documento;
 	$_SESSION['buscar_iniciales']=$buscar_iniciales;
 	$_SESSION['buscar_fecha_desde']=$buscar_fecha_desde;
 	$_SESSION['buscar_fecha_hasta']=$buscar_fecha_hasta;
@@ -51,7 +55,9 @@ if($v!=1){
 	/*setear parametros búsqueda*/
 	$buscar_protocolo=$_SESSION['buscar_protocolo'];
 	$buscar_hc=$_SESSION['buscar_hc'];
-	$buscar_paciente=$_SESSION['buscar_paciente'];
+	$buscar_nombre=$_SESSION['buscar_nombre'];
+	$buscar_apellido=$_SESSION['buscar_apellido'];
+	$buscar_documento=$_SESSION['buscar_documento'];
 	$buscar_iniciales=$_SESSION['buscar_iniciales'];
 	$buscar_fecha_desde=$_SESSION['buscar_fecha_desde'];
 	$buscar_fecha_hasta=$_SESSION['buscar_fecha_hasta'];
@@ -64,7 +70,7 @@ if(empty($pagina)) $pagina = 1;
 if(empty($tamanioPagina)) $tamanioPagina = TAMANIO_PAGINA_FRONT;
 $inicio = ($pagina - 1) * $tamanioPagina;
 
-$rPac=cPaciente::obtener($inicio, $tamanioPagina, $buscar_paciente, $buscar_protocolo, $buscar_hc, $buscar_iniciales, $buscar_fecha_desde,$buscar_fecha_hasta, $cantResultados, $cantPaginas, "pac_id", "DESC","");
+$rPac=cPaciente::obtener($inicio, $tamanioPagina, $buscar_nombre,$buscar_apellido,$buscar_documento, $buscar_protocolo, $buscar_hc, $buscar_iniciales, $buscar_fecha_desde,$buscar_fecha_hasta, $cantResultados, $cantPaginas, "pac_id", "DESC","");
 
 ?>
 <!DOCTYPE html>
@@ -136,6 +142,22 @@ $rPac=cPaciente::obtener($inicio, $tamanioPagina, $buscar_paciente, $buscar_prot
                                 <div class="linea_sky"></div>
                                 <div class="form-inline">
                                       <div class="form-group mr-15">
+                                        <label>Nombre</label>
+                                        <input type="text" name="buscar_nombre" id="buscar_nombre" class="form-control" value="<?=$buscar_nombre?>" placeholder="Nombre">
+                                      </div>
+                                      <div class="form-group mr-15">
+                                        <label>Apellido</label>
+                                        <input type="text" name="buscar_apellido" id="buscar_apellido" class="form-control" value="<?=$buscar_apellido?>" placeholder="Apellido">
+                                      </div>
+                                      <div class="form-group mr-15">
+                                        <label>Nro. Doc.</label>
+                                        <input type="text" name="buscar_documento" id="buscar_documento" class="form-control" value="<?=$buscar_documento?>" placeholder="Nro. documento">
+                                      </div>
+                                      <div class="form-group mr-15">
+                                        <label>Iniciales</label>
+                                        <input type="text" name="buscar_iniciales" id="buscar_iniciales" class="form-control" value="<?=$buscar_iniciales?>" placeholder="Iniciales">
+                                      </div><br>
+                                      <div class="form-group mr-15">
                                         <label>Protocolo</label>
 			                            <?php armarCombo(cProtocolo::obtenerCombo(), "buscar_protocolo", "form-control", " id=\"buscar_protocolo\"", $buscar_protocolo, "[Todos]");?>
                                       </div>
@@ -143,14 +165,7 @@ $rPac=cPaciente::obtener($inicio, $tamanioPagina, $buscar_paciente, $buscar_prot
                                         <label>Nro. HC</label>
                                         <input type="text" name="buscar_hc" id="buscar_hc" class="form-control" value="<?=$buscar_hc?>" placeholder="Nro. HC">
                                       </div>
-                                      <div class="form-group mr-15">
-                                        <label>Nombre y / o Apellido</label>
-                                        <input type="text" name="buscar_paciente" id="buscar_paciente" class="form-control" value="<?=$buscar_paciente?>" placeholder="Nombre y / o Apellido">
-                                      </div>
-                                      <div class="form-group mr-15">
-                                        <label>Iniciales</label>
-                                        <input type="text" name="buscar_iniciales" id="buscar_iniciales" class="form-control" value="<?=$buscar_iniciales?>" placeholder="Iniciales">
-                                      </div>
+
                                       <div class="form-group mr-15">
                                         <label>*Fecha desde</label>
                                         <input type="text" readonly="readonly" size="20" id="buscar_fecha_desde" style="z-index:100;position:relative;max-width:99%;background-color:#FFFFFF" name="buscar_fecha_desde" class="form-control" value="<?=$buscar_fecha_desde?>">&nbsp;<input type="button" class="borrar-fecha form-control" value="X" onClick="this.form.buscar_fecha_desde.value = '';">

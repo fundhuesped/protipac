@@ -66,11 +66,11 @@ class cPaciente
 		  	return -1;
 		  }
 		  array_push($vecCamposSet,"pac_reh_id=".$pac_reh_id);
-		  $nombre=$camposPost['var_nombre'];
+		  /*$nombre=$camposPost['var_nombre'];
 		  $snombre=$camposPost['var_segundo_nombre'];
 		  $apellido=$camposPost['var_apellido'];
 		  $sapellido=$camposPost['var_segundo_apellido'];
-		  array_push($vecCamposSet,"pac_iniciales='".strtoupper(substr($nombre,0,1).substr($snombre,0,1).substr($apellido,0,1).substr($sapellido,0,1))."'");
+		  array_push($vecCamposSet,"pac_iniciales='".strtoupper(substr($nombre,0,1).substr($snombre,0,1).substr($apellido,0,1).substr($sapellido,0,1))."'");*/
 
 		if(count($vecCamposSet)>0){
 			if(empty($pac_id)){
@@ -100,7 +100,7 @@ class cPaciente
 		cComando::commit();
 		return $pac_id;
 	}
-	static function obtener($inicio="", $tamanioPagina="", $buscar_paciente="", $buscar_protocolo, $buscar_hc, $buscar_iniciales, $buscar_fecha_desde,$buscar_fecha_hasta, &$cantResultados, &$cantPaginas, $orden, $direccion_orden,$pac_id)
+	static function obtener($inicio="", $tamanioPagina="", $buscar_nombre="", $buscar_apellido="", $buscar_documento="", $buscar_protocolo, $buscar_hc, $buscar_iniciales, $buscar_fecha_desde,$buscar_fecha_hasta, &$cantResultados, &$cantPaginas, $orden, $direccion_orden,$pac_id)
 	{
 			// Consulto la cantidad total (para paginar)
 			$sql_count = "SELECT IFNULL(COUNT(distinct PAC.pac_id), 0) AS cantidad ";
@@ -109,8 +109,14 @@ class cPaciente
 
 			$sql_from=" FROM  paciente PAC LEFT JOIN protocolo_paciente PPAC ON (PPAC.propac_pac_id=PAC.pac_id) LEFT JOIN protocolo P ON (P.pro_id=PPAC.propac_pro_id)";
 
-			if(!empty($buscar_paciente))
-				$sql_where.= " AND (CONCAT(PAC.pac_nombre,' ',PAC.pac_segundo_nombre,' ',PAC.pac_apellido,' ',PAC.pac_segundo_apellido) LIKE '%$buscar_paciente%' OR CONCAT(PAC.pac_nombre,' ',PAC.pac_apellido) LIKE '%$buscar_paciente%' OR PAC.pac_nombre LIKE '%$buscar_paciente%' OR PAC.pac_apellido LIKE '%$buscar_paciente%') ";
+			if(!empty($buscar_nombre))
+				$sql_where.= " AND (CONCAT(PAC.pac_nombre,' ',PAC.pac_segundo_nombre) LIKE '%$buscar_nombre%' OR PAC.pac_nombre LIKE '%$buscar_nombre%') ";
+				
+			if(!empty($buscar_apellido))
+				$sql_where.= " AND (CONCAT(PAC.pac_apellido,' ',PAC.pac_segundo_apellido) LIKE '%$buscar_apellido%' OR PAC.pac_apellido LIKE '%$buscar_apellido%') ";
+				
+			if(!empty($buscar_documento))
+				$sql_where.= " AND PAC.pac_nro_documento LIKE '%$buscar_documento%'";
 				
 			if(!empty($buscar_protocolo))
 				$sql_where.= " AND P.pro_id='$buscar_protocolo'";
@@ -153,6 +159,17 @@ class cPaciente
 		array_walk_recursive($camposPost, function(&$item, $key) {
 		    $item = addslashes($item);
 		});
+		
+		if(strlen($pro_id)>0){		
+			if(!cProtocolo::tieneScrBasal(intval($pro_id,10))){
+				return -2;
+			}
+		} else {
+			if(!cProtocolo::tieneScrBasal(intval($camposPost['var_pro_id'],10))){
+				return -2;
+			}
+		}
+		
 		$vecCamposSet=array();
 		$vecCamposInt=array();
 		$vecCamposFecha=array();
@@ -172,45 +189,43 @@ class cPaciente
 		if(strlen($fecha_basal)>0){
 			$fecha_basal_iso=date("Y-m-d", strtotime(str_replace("/","-",$fecha_basal)));
 		}
-		
+		$fecha_basal_realizada=$camposPost['fecha_basal_realizada'];
+		$fecha_basal_realizada_iso="";
+		if(strlen($fecha_basal_realizada)>0){
+			$fecha_basal_realizada_iso=date("Y-m-d", strtotime(str_replace("/","-",$fecha_basal_realizada)));
+		}
+		$fecha_estado=$camposPost['fecha_estado'];
+		$fecha_estado_iso="";
+		if(strlen($fecha_estado)>0){
+			$fecha_estado_iso=date("Y-m-d", strtotime(str_replace("/","-",$fecha_estado)));
+		}
 		$scr=0;
 		$basal=0;
-		if(strlen($fecha_screening_iso)>0 && $fecha_screening_iso<$fecha_basal_iso && intval($camposPost['var_screening'],10)==1){
+		/*if(strlen($fecha_screening_iso)>0 && $fecha_screening_iso<$fecha_basal_iso && intval($camposPost['var_screening'],10)==1){
 			$scr=1;
-		}
-		if(strlen($fecha_basal_iso)>0 && $fecha_basal_iso>$fecha_screening_iso && $scr==1 && intval($camposPost['var_basal'],10)==1){
+		}*/
+		/*if(strlen($fecha_basal_iso)>0 && $fecha_basal_iso>$fecha_screening_iso && $scr==1 && intval($camposPost['var_basal'],10)==1){
 			$basal=1;
-		}
+		}*/
 
 		
-		if(intval($camposPost['var_spp_id'],10)==ST_PP_SCR){
-			//estado screening
-			if($scr==0 || ($basal==1 && $scr==1)){
-				//si no aprobó screening o sí aprobó screening pero también realizó basal, no puede tomar este estado
-				return -1;
-			}
-		}
-		if(intval($camposPost['var_spp_id'],10)==ST_PP_PROTOCOLO){
+
+		/*if(intval($camposPost['var_spp_id'],10)==ST_PP_PROTOCOLO){
 			//estado en protocolo
-			if($scr==0 || $basal==0){
-				//si no aprobó screening o sí no realizó basal, no puede tomar este estado
-				return -1;
-			}
+			$fecha_estado=$camposPost['fecha_basal_iso'];
 		}
 		if(intval($camposPost['var_spp_id'],10)==ST_PP_COMPLETADO){
 			//estado completado
-			if($scr==0 || $basal==0){
-				//si no aprobó screening o sí no realizó basal, no puede tomar este estado
-				return -1;
-			}
+			$fecha_estado=$camposPost['fecha_estado'];
+		}
+		if(intval($camposPost['var_spp_id'],10)==ST_PP_DISCONTINUADO){
+			//estado completado
+			$fecha_estado=$camposPost['fecha_estado'];
 		}
 		if(intval($camposPost['var_spp_id'],10)==ST_PP_FALLOSCR){
 			//estado fallo screening
-			if(scr==1 || $basal==1){
-				//si aprobó screening o si realizó la visita basal no puede tomar este estado
-				return -1;
-			}
-		}
+			$fecha_estado=$camposPost['fecha_estado'];
+		}*/
 
 			foreach($camposPost as $key => $value) {
 			  if(substr($key,0,4)=="var_"){
@@ -246,7 +261,7 @@ class cPaciente
 
 		if(count($vecCamposSet)>0){		
 			if(strlen($pro_id)==0){
-				array_push($vecCamposSet,"propac_spp_id=".ST_PP_ACTIVO);//por defecto estado activo
+				array_push($vecCamposSet,"propac_spp_id=".ST_PP_SCR);//por defecto estado activo
 				$sql="INSERT INTO protocolo_paciente (propac_pac_id, propac_pro_id) VALUES ('".$pac_id."','".$camposPost['var_pro_id']."')";
 				$status1 = cComando::ejecutar($sql, INSERT, $idpropac);	
 				if($status1==FALSE){
@@ -263,28 +278,62 @@ class cPaciente
 			}
 		}
 		
-		if($fecha_screening_iso!=""){
-			$vis=cPaciente::insertarVisitaPacienteProtocolo($pro_id,$pac_id,TIPO_VIS_SCR,$fecha_screening_iso,$fecha_screening_iso,$camposPost['var_med_id'],ST_VIS_REALIZADA);
-			if($vis==-1){
-				cComando::rollback();
-				return -1;
-			}
-		}
-		if($fecha_basal_iso!=""){
-			if(intval($camposPost['var_basal'],10)==1){
-				$st_basal=ST_VIS_REALIZADA;
-				$fecha_realizacion_basal=$fecha_basal_iso;
-			} else {
-				$st_basal=ST_VIS_PROGRAMADA;
-				$fecha_realizacion_basal=null;
-			}
-			$vis=cPaciente::insertarVisitaPacienteProtocolo($pro_id,$pac_id,TIPO_VIS_BASAL,$fecha_basal_iso,$fecha_realizacion_basal,$camposPost['var_med_id'],$st_basal);
-			if($vis==-1){
-				cComando::rollback();
-				return -1;
-			}
-		}
 		
+		switch(intval($camposPost['var_spp_id'],10)){
+			case ST_PP_SCR:
+				if($fecha_screening_iso!=""){
+					$est=cPaciente::cambiarEstadoPacienteProtocolo($_SESSION['id_usu'],date('Y-m-d H:i:s'),$pro_id,$pac_id,intval($camposPost['var_spp_id'],10),"",$fecha_screening_iso);
+					if($est==-1){
+						cComando::rollback();
+						return -1;
+					}
+					$vis=cPaciente::insertarVisitaPacienteProtocolo($pro_id,$pac_id,TIPO_VIS_SCR,$fecha_screening_iso,$fecha_screening_iso,$camposPost['var_med_id'],ST_VIS_REALIZADA);
+					if($vis==-1){
+						cComando::rollback();
+						return -1;
+					}
+					
+					$visBasal=cPaciente::insertarVisitaPacienteProtocolo($pro_id,$pac_id,TIPO_VIS_BASAL,NULL,NULL,$camposPost['var_med_id'],ST_VIS_PROGRAMADA);
+					if($visBasal==-1){
+						cComando::rollback();
+						return -1;
+					}
+				} else {
+					cComando::rollback();
+					return -1;
+				}
+			break;
+			case ST_PP_PROTOCOLO:
+				if($fecha_basal_realizada_iso!=""){
+					$est=cPaciente::cambiarEstadoPacienteProtocolo($_SESSION['id_usu'],date('Y-m-d H:i:s'),$pro_id,$pac_id,intval($camposPost['var_spp_id'],10),"",$fecha_basal_realizada_iso);
+					if($est==-1){
+						cComando::rollback();
+						return -1;
+					}
+					$vis=cPaciente::insertarVisitaPacienteProtocolo($pro_id,$pac_id,TIPO_VIS_BASAL,NULL,$fecha_basal_realizada_iso,$camposPost['var_med_id'],ST_VIS_REALIZADA);
+					if($vis==-1){
+						cComando::rollback();
+						return -1;
+					}
+				} else {
+					cComando::rollback();
+					return -1;
+				}
+			break;
+			default:
+				if($fecha_estado_iso!=""){
+					$est=cPaciente::cambiarEstadoPacienteProtocolo($_SESSION['id_usu'],date('Y-m-d H:i:s'),$pro_id,$pac_id,intval($camposPost['var_spp_id'],10),"",$fecha_estado_iso);
+					if($est==-1){
+						cComando::rollback();
+						return -1;
+					}
+				} else {
+					cComando::rollback();
+					return -1;
+				}
+			break;
+		}
+				
 		cComando::commit();
 		return 1;
 	}
@@ -314,21 +363,36 @@ class cPaciente
 		return $rDatos;
 	}
 	static function insertarVisitaPacienteProtocolo($pro_id,$pac_id,$tiv_id,$provis_fecha_agenda,$provis_fecha_realizada,$med_id,$sv_id){
-		$sql="SELECT CV.cron_id, CV.cron_ventana_max, CV.cron_ventana_min, PPV.provis_id FROM cronograma_visita CV LEFT JOIN protocolo_paciente_visita PPV ON (PPV.provis_cron_id=CV.cron_id AND PPV.provis_pro_id='$pro_id' AND PPV.provis_pac_id='$pac_id' AND PPV.provis_tiv_id='$tiv_id') WHERE CV.cron_tiv_id='$tiv_id' AND CV.cron_pro_id='$pro_id'";
+		$sql="SELECT CV.cron_id, CV.cron_ventana_max, CV.cron_ventana_min, PPV.provis_id, CV.cron_dias_basal FROM cronograma_visita CV LEFT JOIN protocolo_paciente_visita PPV ON (PPV.provis_cron_id=CV.cron_id AND PPV.provis_pro_id='$pro_id' AND PPV.provis_pac_id='$pac_id' AND PPV.provis_tiv_id='$tiv_id') WHERE CV.cron_tiv_id='$tiv_id' AND CV.cron_pro_id='$pro_id'";
 		$rDatos=cComando::consultar($sql);
 		if($rDatos->cantidad()>0){
+			if($tiv_id==TIPO_VIS_BASAL){
+				//calculo fecha de visita basal en función de la screening
+				$sql="SELECT CS.cron_dias_basal, PPV.provis_fecha_agenda FROM cronograma_visita CS INNER JOIN protocolo_paciente_visita PPV ON (PPV.provis_cron_id=CS.cron_id AND PPV.provis_pac_id='$pac_id') WHERE CS.cron_pro_id='$pro_id' AND CS.cron_tiv_id=".TIPO_VIS_SCR;
+				$rDatosScr=cComando::consultar($sql);
+				if($rDatosScr->cantidad()>0){
+					$fecha_screening = $rDatosScr->campo('provis_fecha_agenda',0);
+					$date = new DateTime($fecha_screening);
+					$date->add(new DateInterval('P'.($rDatosScr->campo('cron_dias_basal',0)*-1).'D')); // P1D means a period of 1 day
+					$provis_fecha_agenda = $date->format('Y-m-d');
+				} else {
+					return -1;
+				}
+			}
+
 			if(is_null($rDatos->campo('provis_id',0))){
-				$sql="INSERT INTO protocolo_paciente_visita (provis_pro_id, provis_pac_id, provis_cron_id, provis_fecha_agenda, provis_fecha_realizada, provis_sv_id, provis_med_id, provis_tiv_id, provis_ventana_max, provis_ventana_min) VALUES ('$pro_id','$pac_id','".$rDatos->campo('cron_id',0)."','$provis_fecha_agenda',".(is_null($provis_fecha_realizada) ? "NULL" : "'$provis_fecha_realizada'").",'$sv_id','$med_id','$tiv_id','".$rDatos->campo('cron_ventana_max',0)."','".$rDatos->campo('cron_ventana_min',0)."')";
+				$sql="INSERT INTO protocolo_paciente_visita (provis_pro_id, provis_pac_id, provis_cron_id, provis_fecha_agenda_original, provis_fecha_agenda, provis_fecha_realizada, provis_sv_id, provis_med_id, provis_tiv_id, provis_ventana_max, provis_ventana_min) VALUES ('$pro_id','$pac_id','".$rDatos->campo('cron_id',0)."','$provis_fecha_agenda','$provis_fecha_agenda',".(is_null($provis_fecha_realizada) ? "NULL" : "'$provis_fecha_realizada'").",'$sv_id','$med_id','$tiv_id','".$rDatos->campo('cron_ventana_max',0)."','".$rDatos->campo('cron_ventana_min',0)."')";
 				$status = cComando::ejecutar($sql, INSERT, $idVis);
 			} else {
-				$sql="UPDATE protocolo_paciente_visita SET provis_fecha_agenda='$provis_fecha_agenda',provis_fecha_realizada=".(is_null($provis_fecha_realizada) ? "NULL" : "'$provis_fecha_realizada'").",provis_med_id='$med_id',provis_sv_id='$sv_id'
-				WHERE provis_id=".$rDatos->campo('provis_id',0);
+				//solo modifico visitas NO REALIZADAS
+				$sql="UPDATE protocolo_paciente_visita SET provis_fecha_agenda='".(is_null($provis_fecha_agenda) ? "provis_fecha_agenda" : $provis_fecha_agenda)."',provis_fecha_realizada=".(is_null($provis_fecha_realizada) ? "NULL" : "'$provis_fecha_realizada'").",provis_med_id='$med_id',provis_sv_id='$sv_id'
+				WHERE provis_id=".$rDatos->campo('provis_id',0);//." AND provis_sv_id<>".ST_VIS_REALIZADA;
 				$status = cComando::ejecutar($sql, UPDATE, $idVis);
 				$idVis=$rDatos->campo('provis_id',0);
 			}
 
 			if($status){
-				return 1;		
+				return 1;	
 			}
 		}
 		return -1;
@@ -338,7 +402,7 @@ class cPaciente
 			// Consulto la cantidad total (para paginar)
 			$sql_count = "SELECT IFNULL(COUNT(distinct C.cron_id), 0) AS cantidad ";
 			$sql_where=" WHERE 1 ";
-			$sql = "SELECT C.cron_id, IFNULL(PPV.provis_descripcion,IF(C.cron_crvn_id=-1, C.cron_descripcion,CRVN.crvn_descripcion)) nombre_visita, C.cron_dias_basal, TIV.tiv_descripcion, PPV.provis_fecha_agenda, PPV.provis_hora_agenda, PPV.provis_fecha_realizada, PPV.provis_hora_realizada, SV.sv_descripcion, SV.sv_estilo, SV.sv_id, PPV.provis_id,PPV.provis_observaciones";
+			$sql = "SELECT C.cron_id, IFNULL(PPV.provis_descripcion,IF(C.cron_crvn_id=-1, C.cron_descripcion,CRVN.crvn_descripcion)) nombre_visita, C.cron_dias_basal, TIV.tiv_descripcion, PPV.provis_fecha_agenda, PPV.provis_hora_agenda, PPV.provis_fecha_realizada, PPV.provis_hora_realizada, SV.sv_descripcion, SV.sv_estilo, SV.sv_id, PPV.provis_id,PPV.provis_observaciones, PPV.provis_laboratorio";
 
 			$sql_from=" FROM protocolo_paciente_visita PPV INNER JOIN tipo_visita TIV ON (TIV.tiv_id=PPV.provis_tiv_id) INNER JOIN status_visita SV ON (SV.sv_id=PPV.provis_sv_id) LEFT JOIN cronograma_visita C ON (PPV.provis_cron_id=C.cron_id) LEFT JOIN cronograma_visita_nombre CRVN ON (CRVN.crvn_id=C.cron_crvn_id)";
 			$sql_where.= " AND PPV.provis_pac_id='$pac_id'";
@@ -350,7 +414,7 @@ class cPaciente
 			}
 			
 			if(strlen($buscar_laboratorio)>0){
-				$sql_where.=" AND C.cron_laboratorio='".intval($buscar_laboratorio,10)."'";
+				$sql_where.=" AND (C.cron_laboratorio='".intval($buscar_laboratorio,10)."' OR PPV.provis_laboratorio='".intval($buscar_laboratorio,10)."')";
 			}
 			if(strlen($buscar_protocolo)>0){
 				$sql_where.=" AND PPV.provis_pro_id='".intval($buscar_protocolo,10)."'";
@@ -379,8 +443,37 @@ class cPaciente
 		$rDatos = cComando::consultar($sql.$sql_from.$sql_where.$sql_order.$sql_limit);
 		return $rDatos;
 	}
+	static function obtenerVisitasPacienteCalendario($orden, $direccion_orden,$pro_id,$med_id,$buscar_fecha_desde,$buscar_fecha_hasta, $sv_id)
+	{
+			$sql = "SELECT PPV.provis_id, PPV.provis_fecha_agenda, PPV.provis_hora_agenda, SV.sv_descripcion, PAC.pac_iniciales, PPV.provis_pac_id, PPV.provis_tiv_id, PPV.provis_med_id,PPV.provis_observaciones,PPV.provis_laboratorio, PPV.provis_fecha_agenda_original, PPV.provis_hora_agenda_original, MED.med_apellido, MED.med_nombre, PRO.pro_codigo_estudio,PPV.provis_pro_id";
+		$sql_from=" FROM protocolo_paciente_visita PPV INNER JOIN status_visita SV ON (SV.sv_id=PPV.provis_sv_id) INNER JOIN paciente PAC ON (PAC.pac_id=PPV.provis_pac_id) INNER JOIN medico MED ON (MED.med_id=PPV.provis_med_id) INNER JOIN protocolo PRO ON (PRO.pro_id=PPV.provis_pro_id)";
+		$sql_where= " WHERE 1";
+			if(strlen($sv_id)>0){
+				$sql_where.=" AND PPV.provis_sv_id='$sv_id'";
+			}
+			if(strlen($pro_id)>0){
+				$sql_where.=" AND PPV.provis_pro_id='$pro_id'";
+			}
+			if(strlen($med_id)>0){
+				$sql_where.=" AND PPV.provis_med_id='$med_id'";
+			}
+			if(strlen($buscar_fecha_desde)>0){
+				if(validateDate($buscar_fecha_desde)){
+					$sql_where.=" AND PPV.provis_fecha_agenda>='$buscar_fecha_desde'";
+				}
+			}
+			if(strlen($buscar_fecha_hasta)>0){
+				if(validateDate($buscar_fecha_hasta)){
+					$sql_where.=" AND PPV.provis_fecha_agenda<='$buscar_fecha_hasta'";
+				}
+			}
+		$sql_order= " ORDER BY $orden $direccion";
+		$rDatos = cComando::consultar($sql.$sql_from.$sql_where.$sql_order);
+		return $rDatos;
+	}
+
 	static function obtenerVisitaPaciente($provis_id,$pro_id){
-		$sql = "SELECT C.cron_id, IFNULL(PPV.provis_descripcion,IF(C.cron_crvn_id=-1, C.cron_descripcion,CRVN.crvn_descripcion)) nombre_visita, C.cron_dias_basal, TIV.tiv_descripcion, PPV.provis_fecha_agenda, PPV.provis_hora_agenda, PPV.provis_fecha_realizada, PPV.provis_hora_realizada, SV.sv_descripcion, SV.sv_estilo, SV.sv_id, PAC.pac_nombre, PAC.pac_apellido, PPV.provis_pac_id, PPV.provis_tiv_id, PPV.provis_ventana_max, PPV.provis_ventana_min,PPV.provis_med_id,PPV.provis_observaciones";
+		$sql = "SELECT C.cron_id, IFNULL(PPV.provis_descripcion,IF(C.cron_crvn_id=-1, C.cron_descripcion,CRVN.crvn_descripcion)) nombre_visita, C.cron_dias_basal, TIV.tiv_descripcion, PPV.provis_fecha_agenda, PPV.provis_hora_agenda, PPV.provis_fecha_realizada, PPV.provis_hora_realizada, SV.sv_descripcion, SV.sv_estilo, SV.sv_id, PAC.pac_nombre, PAC.pac_apellido, PPV.provis_pac_id, PPV.provis_tiv_id, PPV.provis_ventana_max, PPV.provis_ventana_min,PPV.provis_med_id,PPV.provis_observaciones,PPV.provis_laboratorio, PPV.provis_fecha_agenda_original, PPV.provis_hora_agenda_original";
 		$sql_from=" FROM protocolo_paciente_visita PPV INNER JOIN tipo_visita TIV ON (TIV.tiv_id=PPV.provis_tiv_id) INNER JOIN status_visita SV ON (SV.sv_id=PPV.provis_sv_id) INNER JOIN paciente PAC ON (PAC.pac_id=PPV.provis_pac_id) LEFT JOIN cronograma_visita C ON (PPV.provis_cron_id=C.cron_id) LEFT JOIN cronograma_visita_nombre CRVN ON (CRVN.crvn_id=C.cron_crvn_id)";
 		$sql_where= " WHERE PPV.provis_id='$provis_id' AND PPV.provis_pro_id='$pro_id'";
 		return cComando::consultar($sql.$sql_from.$sql_where);
@@ -400,6 +493,7 @@ class cPaciente
 		array_push($vecCamposInt,"var_med_id");
 		array_push($vecCamposInt,"var_sv_id");
 		array_push($vecCamposInt,"var_pro_id");
+		array_push($vecCamposInt,"var_laboratorio");
 		
 		array_push($vecCamposFecha,"var_fecha_agenda");
 		array_push($vecCamposFecha,"var_fecha_realizada");
@@ -417,6 +511,9 @@ class cPaciente
 			}
 		}
 
+		if($camposPost['var_tiv_id']!=TIPO_VIS_ESPO){
+			unset($camposPost['var_laboratorio']);
+		}
 		if($camposPost['var_tiv_id']!=TIPO_VIS_ESPO || strlen($provis_id)>0){
 			//remover de array campos que solo van en visita espontánea
 			unset($camposPost['var_descripcion']);
@@ -480,6 +577,10 @@ class cPaciente
 			} else {
 				$hora_agenda=completarNumeroIzq(intval($camposPost['hora_inicio_agenda'],10),2).":".completarNumeroIzq(intval($camposPost['minutos_inicio_agenda'],10),2).":00";
 				array_push($vecCamposSet,"provis_hora_agenda='".$hora_agenda."'");
+				if(strlen($provis_id)==0){
+					array_push($vecCamposSet,"provis_fecha_agenda_original='".$camposPost['var_fecha_agenda']."'");
+					array_push($vecCamposSet,"provis_hora_agenda_original='".$hora_agenda."'");
+				}
 			}			
 
 			if($estado_visita==ST_VIS_REALIZADA){
@@ -590,10 +691,16 @@ class cPaciente
 			$hora_agenda=completarNumeroIzq(intval($hora_inicio,10),2).":".completarNumeroIzq(intval($minutos_inicio,10),2).":00";
 			for($i=0;$i<$rVis->cantidad();$i++){
 				if(is_null($rVis->campo('provis_id',$i))){
+					//obtener médico basal				
+					$sql="SELECT PVIS.provis_med_id FROM protocolo_paciente_visita PVIS WHERE PVIS.provis_pro_id='$pro_id' AND PVIS.provis_pac_id='$pac_id' AND PVIS.provis_tiv_id=".TIPO_VIS_BASAL;
+					$rMed=cComando::consultar($sql);
+					if($rMed->cantidad()>0){
+						$med_id=$rMed->campo('provis_med_id',0);
+					}
 					//insertar
 					$sql="INSERT INTO protocolo_paciente_visita
-						 (provis_pro_id,provis_pac_id,provis_cron_id,provis_descripcion,provis_fecha_agenda,provis_hora_agenda,provis_sv_id,provis_tiv_id,provis_observaciones,provis_ventana_max,provis_ventana_min) VALUES (";
-					$sql.="'".intval($pro_id,10)."','".intval($pac_id,10)."','".$rVis->campo('cron_id',$i)."',".(is_null($rVis->campo('cron_descripcion',$i)) ? "NULL" :"'".$rVis->campo('cron_descripcion',$i)."'").",'".$rVis->campo('fecha_agenda',$i)."','".$hora_agenda."','".ST_VIS_PROGRAMADA."','".$rVis->campo('cron_tiv_id',$i)."','".$rVis->campo('cron_observaciones',$i)."','".$rVis->campo('cron_ventana_max',$i)."','".$rVis->campo('cron_ventana_min',$i)."'";
+						 (provis_pro_id,provis_pac_id,provis_cron_id,provis_descripcion,provis_fecha_agenda_original,provis_hora_agenda_original,provis_fecha_agenda,provis_hora_agenda,provis_sv_id,provis_tiv_id,provis_observaciones,provis_ventana_max,provis_ventana_min,provis_med_id) VALUES (";
+					$sql.="'".intval($pro_id,10)."','".intval($pac_id,10)."','".$rVis->campo('cron_id',$i)."',".(is_null($rVis->campo('cron_descripcion',$i)) ? "NULL" :"'".$rVis->campo('cron_descripcion',$i)."'").",'".$rVis->campo('fecha_agenda',$i)."','".$hora_agenda."','".$rVis->campo('fecha_agenda',$i)."','".$hora_agenda."','".ST_VIS_PROGRAMADA."','".$rVis->campo('cron_tiv_id',$i)."','".$rVis->campo('cron_observaciones',$i)."','".$rVis->campo('cron_ventana_max',$i)."','".$rVis->campo('cron_ventana_min',$i)."','$med_id'";
 					$sql.=")";
 					$status = cComando::ejecutar($sql, INSERT, $id);
 					if(!$status){
@@ -616,6 +723,38 @@ class cPaciente
 		} else {
 			cComando::commit();
 			return 1;
+		}
+	}
+	static function cambiarEstadoPacienteProtocolo($usr_id,$fecha_hora,$pro_id,$pac_id,$spp_id,$texto,$fecha_estado){
+		/*$rPerfil=cUsuario::obtenerPerfilUsuario($usr_id);
+		if($rPerfil->cantidad()==0){
+			return -1;
+		}*/
+		$rPro=cProtocolo::obtenerProtocolo($pro_id,$pac_id);
+		if($rPro->cantidad()==0){
+			return -1;
+		}
+		$estado_actual=$rPro->campo('propac_spp_id',0);
+		$cambiar=1;
+		
+		if($cambiar==1){
+			if(strlen($texto)==0){
+				$rSpp=cProtocolo::obtenerStatusProtocoloPaciente($spp_id);
+				if($rSpp->cantidad()>0){
+					$texto=$rSpp->campo('spp_texto_comentario',0);
+				}
+			}
+			$sql="INSERT INTO protocolo_paciente_log (ppaclog_pro_id,ppaclog_pac_id,ppaclog_fecha_hora,ppaclog_usr_id,ppaclog_spp_id,ppaclog_comentario,ppaclog_fecha_estado) VALUES ('$pro_id','$pac_id','$fecha_hora','$usr_id','$spp_id','$texto','$fecha_estado')";
+			$status = cComando::ejecutar($sql, INSERT, $ppaclog_id);
+			$sql="UPDATE protocolo_paciente SET propac_spp_id='$spp_id' WHERE propac_pro_id='$pro_id' AND propac_pac_id='$pac_id'";
+			$status1 = cComando::ejecutar($sql, UPDATE, $id);
+			if($status==FALSE || $status1==FALSE){
+				return -1;
+			} else {
+				return $ppaclog_id;
+			}
+		} else {
+			return -1;
 		}
 	}
 }

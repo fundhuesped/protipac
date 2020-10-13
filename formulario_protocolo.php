@@ -30,11 +30,11 @@ if(!$permisoCargarProtocolo){
 
 	$permisoGuardar=true;
 	$permisoBorrar=false;
-	if(strlen($id)==0){
+	/*if(strlen($id)==0){
 		if($v==1){
 			$id=$_SESSION['id_pro'];
 		}
-	}
+	}*/
 	if(!empty($id)){
 		$rPro=cProtocolo::obtenerProtocolo($id,"");
 		if($rPro->cantidad()==0){
@@ -230,9 +230,13 @@ if(!empty($id)){
 							document.location=varDest;
 						});
 					}
+					<?php if($permisoGuardar){?>
 					$("#alerta-formulario").find("#alerta-titulo").text("Faltan completar datos.");
 					$("#alerta-formulario").find('#alerta-cuerpo').html(errores.replace(/\n/g, "<br />"));
 					$('#alerta-formulario').modal('show');
+					<?php } else {?>
+							document.location=varDest;
+					<?php }?>
 				}
 			} else {
 				if(varDest==""){
@@ -246,7 +250,8 @@ if(!empty($id)){
 					document.datos.action="";
 					document.datos.submit();
 				} else {
-					$("#alerta-formulario").find("#alerta-titulo").text("Los datos no se guardaron.");
+					<?php if($permisoGuardar){?>
+					$("#alerta-formulario").find("#alerta-titulo").text("Si ha modificado datos, no se guardarán.");
 					$('#boton_modal_continuar').click(function(){
 						document.datos.v.value=1;
 						document.datos.target="_self";
@@ -256,8 +261,15 @@ if(!empty($id)){
 					});
 					$('#boton_modal_continuar').text("Abandonar SIN guardar");
 					$('#boton_modal_cerrar').text("Permanecer en el formulario");
-					$("#alerta-formulario").find('#alerta-cuerpo').html("Debe indicar si desea abandonar el formulario sin guardar los datos, o bien permanecer y hacer clic en el botón guardar");
-					$("#alerta-formulario").modal('show');				
+					$("#alerta-formulario").find('#alerta-cuerpo').html("Debe indicar si desea abandonar el formulario sin guardar, o bien permanecer y hacer clic en el botón guardar");
+					$("#alerta-formulario").modal('show');
+					<?php } else {?>
+						document.datos.v.value=1;
+						document.datos.target="_self";
+						document.datos.accion.value="";			
+						document.datos.action=varDest;
+						document.datos.submit();
+					<?php }?>
 				}
 			}
 		<? } else {?>
@@ -704,7 +716,7 @@ if(!empty($id)){
                             <input type="text" size="20" id="var_fecha_inicio" placeholder="dd/mm/aaaa" style="z-index:100;position:relative;max-width:99%;background-color:#FFFFFF" name="var_fecha_inicio" class="form-control" value="<?=convertirFechaCalendar($pro_fecha_inicio,'d/m/Y')?>">&nbsp;<? if($permisoGuardar){?><input type="button" class="borrar-fecha form-control" value="X" onClick="this.form.var_fecha_inicio.value = '';"><? }?>
                           </div>
                           <div class="form-inline col-md-4">
-                            <label>Fecha fin</label><br>
+                            <label>Fecha estimada de fin</label><br>
                             <input type="text" size="20" id="var_fecha_fin" placeholder="dd/mm/aaaa" style="z-index:100;position:relative;max-width:99%;background-color:#FFFFFF" name="var_fecha_fin" class="form-control" value="<?=convertirFechaCalendar($pro_fecha_fin,'d/m/Y')?>">&nbsp;<? if($permisoGuardar){?><input type="button" class="borrar-fecha form-control" value="X" onClick="this.form.var_fecha_fin.value = '';"><? }?>
 						   </div>
                         </div>

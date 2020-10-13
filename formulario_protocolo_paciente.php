@@ -59,6 +59,11 @@ if(!$permisoEnrolar){
 			foreach(array_keys($rPro->CAMPOS) as $campo){
 				${$campo}=$rPro->campo($campo,0);
 			}
+			$sql="SELECT PPAC.ppaclog_fecha_estado FROM protocolo_paciente_log PPAC INNER JOIN (SELECT MAX(ppaclog_id) id FROM protocolo_paciente_log pl WHERE pl.ppaclog_pro_id='$id_proto' AND pl.ppaclog_pac_id='$id' AND pl.ppaclog_spp_id=$propac_spp_id) ppl ON (ppl.id=PPAC.ppaclog_id)";
+			$rFecha=cComando::consultar($sql);
+			if($rFecha->cantidad()>0){
+				$fecha_estado=$rFecha->campo('ppaclog_fecha_estado',0);
+			}
 		}
 		if($permisoGuardar){
 			$titulo_pagina="Editar paciente ".strtoupper($pac_apellido).", ".ucfirst($pac_nombre).", HC: ".$pac_id." en protocolo: ".$pro_titulo_breve;
@@ -73,9 +78,13 @@ if(!$permisoEnrolar){
 if($accion=="GUARDAR" && $permisoGuardar){
 	$errorVar=$_POST['errorVar'];
 	$res=cPaciente::modificarPacienteProtocolo($_POST, $errorVar, $id, $id_proto);
-	cDB::cerrar($conexion);
-	header("Location:".$dest."?id=".$id);
-	exit();
+	if($res==-2){
+		$mensaje="Para guardar los cambios, el protocolo debe tener al menos cargadas en su cronograma las visitas screening y basal";
+	} else {
+		cDB::cerrar($conexion);
+		header("Location:".$dest."?id=".$id);
+		exit();
+	}
 }
 
 if($accion=="PROGRAMAR" && $permisoGuardar){
@@ -90,7 +99,6 @@ if($accion=="PROGRAMAR" && $permisoGuardar){
 
 <? include_once("includes/head.php");?>
 <script language="javascript" charset="utf-8">
-	var cant_camaras=0;//valor inicial para selector de camaras	
 	function validarFormulario(varDest, varMenu){
 		<? if($permisoGuardar){?>
 			varError=0;
@@ -108,10 +116,16 @@ if($accion=="PROGRAMAR" && $permisoGuardar){
 				if($('#var_nro_protocolo').val()==""){
 					errores+="- Número Scr.<br>";
 				}
-				if($('#var_nro_random').val()==""){
+				/*if($('#var_nro_random').val()==""){
 					errores+="- Número Random<br>";
+				}*/
+				if(parseInt($('#var_spp_id').val(),10)!=<?=ST_PP_SCR?> && parseInt($('#var_spp_id').val(),10)!=<?=ST_PP_PROTOCOLO?>){
+					if($('#fecha_estado').val()==""){
+						errores+="- Fecha estado<br>";
+					}
 				}
-				if($('#var_basal').val()!=""){
+				<?php if(strlen($id_proto)>0){?>
+				/*if($('#var_basal').val()!=""){
 					if($('#var_basal').val()=="1"){
 						realiz_basal=1;
 					}
@@ -131,48 +145,61 @@ if($accion=="PROGRAMAR" && $permisoGuardar){
 							}
 						}
 					}
-				}
+				}*/
 				if($('#fecha_screening').val()!="" && $('#fecha_basal').val()!=""){
 					varFechaScreening=new Date($('#fecha_screening').val());
 					varFechaBasal=new Date($('#fecha_basal').val());
 					
 					if(varFechaScreening>=varFechaBasal){
 						errores+="- La fecha de screening debe ser menor a la fecha de la visita basal<br>";
-						err_fecha_scr=1;
-						err_fecha_basal=1;
+						//err_fecha_scr=1;
+						//err_fecha_basal=1;
 					}
 				}
+				<?php } else {?>
+					if($('#fecha_screening').val()==""){
+						errores+="- Fecha screening<br>";
+						//err_fecha_scr=1;
+					}
+				<?php }?>
 
-				if($('#var_med_id').val()==""){
-					errores+="- Médico<br>";
+				if($('#var_spp_id').val()==<?=ST_PP_SCR?> || $('#var_spp_id').val()==<?=ST_PP_PROTOCOLO?>){
+					if($('#var_med_id').val()==""){
+						errores+="- Médico<br>";
+					}
+				}
+				if($('#var_spp_id').val()==<?=ST_PP_PROTOCOLO?>){
+					if($('#fecha_basal_realizada').val()==""){
+						errores+="- Fecha realización basal<br>";
+					}
 				}
 				if($('#var_spp_id').val()==""){
 					errores+="- Estado del paciente en el protocolo<br>";
 				} else {
-					if(parseInt($('#var_spp_id').val(),10)==<?=ST_PP_SCR?>){
+					/*if(parseInt($('#var_spp_id').val(),10)==<?//=ST_PP_SCR?>){
 						if(!(err_fecha_scr==0 && aprob_scr==1) || err_fecha_basal==0 && realiz_basal==1){
 							errores+="- Solo puede pasar a estado SCREENING si no realizó visita basal y aprobó screening";
 						}
 						
-					}
-					if(parseInt($('#var_spp_id').val(),10)==<?=ST_PP_PROTOCOLO?>){
+					}*/
+					/*if(parseInt($('#var_spp_id').val(),10)==<?//=ST_PP_PROTOCOLO?>){
 						if(err_fecha_scr==1 || aprob_scr==0 || err_fecha_basal==1 || realiz_basal==0){
 							errores+="- Solo puede pasar a estado EN PROTOCOLO si aprobó el screening y realizó la visita basal";
 						}
 						
 					}
-					if(parseInt($('#var_spp_id').val(),10)==<?=ST_PP_COMPLETADO?>){
+					if(parseInt($('#var_spp_id').val(),10)==<?//=ST_PP_COMPLETADO?>){
 						if(err_fecha_scr==1 || aprob_scr==0 || err_fecha_basal==1 || realiz_basal==0){
 							errores+="- Solo puede pasar a estado COMPLETADO si aprobó el screening y realizó la visita basal";
 						}
 						
 					}
-					if(parseInt($('#var_spp_id').val(),10)==<?=ST_PP_FALLOSCR?>){
+					if(parseInt($('#var_spp_id').val(),10)==<?//=ST_PP_FALLOSCR?>){
 						if((err_fecha_scr==0 && aprob_scr==1) || (err_fecha_basal==0 && realiz_basal==1)){
 							errores+="- Solo puede pasar a estado FALLO SCREENING si aprobó el screening y realizó la visita basal";
 						}
 						
-					}
+					}*/
 				}			
 			}
 		
@@ -189,9 +216,15 @@ if($accion=="PROGRAMAR" && $permisoGuardar){
 							document.datos.submit();
 						});
 					}
+					<?php if($permisoGuardar){?>
 					$("#alerta-formulario").find("#alerta-titulo").text("Faltan completar datos.");
 					$("#alerta-formulario").find('#alerta-cuerpo').html(errores.replace(/\n/g, "<br />"));
 					$('#alerta-formulario').modal('show');
+					<?php } else {?>
+							document.datos.action=varDest;
+							document.datos.target="_self";
+							document.datos.submit();
+					<?php }?>
 				}
 			} else {
 				if(varDest==""){
@@ -205,7 +238,8 @@ if($accion=="PROGRAMAR" && $permisoGuardar){
 					document.datos.action="";
 					document.datos.submit();
 				} else {
-					$("#alerta-formulario").find("#alerta-titulo").text("Los datos no se guardaron.");
+					<?php if($permisoGuardar){?>
+					$("#alerta-formulario").find("#alerta-titulo").text("Si ha modificado datos, no se guardarán.");
 					$('#boton_modal_continuar').click(function(){
 						document.datos.v.value=1;
 						document.datos.target="_self";
@@ -215,8 +249,15 @@ if($accion=="PROGRAMAR" && $permisoGuardar){
 					});
 					$('#boton_modal_continuar').text("Abandonar SIN guardar");
 					$('#boton_modal_cerrar').text("Permanecer en el formulario");
-					$("#alerta-formulario").find('#alerta-cuerpo').html("Debe indicar si desea abandonar el formulario sin guardar los datos, o bien permanecer y hacer clic en el botón guardar");
-					$("#alerta-formulario").modal('show');				
+					$("#alerta-formulario").find('#alerta-cuerpo').html("Debe indicar si desea abandonar el formulario sin guardar, o bien permanecer y hacer clic en el botón guardar");
+					$("#alerta-formulario").modal('show');
+					<?php } else {?>
+						document.datos.v.value=1;
+						document.datos.target="_self";
+						document.datos.accion.value="";			
+						document.datos.action=varDest;
+						document.datos.submit();
+					<?php }?>
 				}
 			}
 		<? } else {?>
@@ -261,6 +302,8 @@ if($accion=="PROGRAMAR" && $permisoGuardar){
 	$(document).ready(function() {
 		$('#fecha_screening').datepicker({ dateFormat: 'yy-mm-dd' });
 		$('#fecha_basal').datepicker({ dateFormat: 'yy-mm-dd' });
+		$('#fecha_basal_realizada').datepicker({ dateFormat: 'yy-mm-dd' });
+		$('#fecha_estado').datepicker({ dateFormat: 'yy-mm-dd' });
 		/*$("#obs_visitas").MaxLength(
 		{
 			MaxLength: 1000,
@@ -273,6 +316,164 @@ if($accion=="PROGRAMAR" && $permisoGuardar){
 			width: null,
 			tags:true
 		});		
+		<?php if(strlen($mensaje)>0){?>
+			$("#alerta").find("#alerta-titulo").text("Ocurrió un error.");
+			$("#alerta").find("#alerta-cuerpo").html("<?=$mensaje?>");
+			$("#alerta").modal('show');
+		<?php }?>
+		
+		$('#var_spp_id').change(function() {
+			switch(parseInt($(this).val(),10)){
+				case <?=ST_PP_FALLOSCR?>:
+					$("#var_nro_protocolo").attr("readonly","readonly");
+					$("#var_nro_random").attr("readonly","readonly");
+					$("#caja_rnd").hide();
+					$("#caja_scr").show();
+					$("#caja_fecha_scr").hide();
+					$("#caja_fecha_basal").hide();
+					$('#fecha_basal_realizada').attr("disabled","disabled");
+					$('#fecha_screening').attr("disabled","disabled");
+					$("#caja_fecha_estado").show();
+					$('#fecha_estado').removeAttr("disabled");
+					$('#var_med_id').attr("disabled","disabled");
+					$('#caja_medico').hide();
+				break;
+				case <?=ST_PP_SCR?>:
+					$("#caja_scr").removeAttr("readonly");
+					$("#var_nro_random").attr("readonly","readonly");
+					$("#caja_rnd").hide();
+					$("#caja_scr").show();
+					$("#caja_fecha_scr").show();
+					$("#caja_fecha_basal").hide();
+					$('#fecha_basal_realizada').attr("disabled","disabled");
+					$('#fecha_screening').removeAttr("disabled");
+					$("#caja_fecha_estado").hide();
+					$('#fecha_estado').attr("disabled","disabled");
+					$('#var_med_id').removeAttr("disabled");
+					$('#caja_medico').show();
+				break;
+				case <?=ST_PP_PROTOCOLO?>:
+					$("#var_nro_protocolo").attr("readonly","readonly");
+					$("#var_nro_random").removeAttr("readonly");
+					$("#caja_rnd").show();
+					$("#caja_scr").show();
+					$("#caja_fecha_basal").show();
+					$('#fecha_basal_realizada').removeAttr("disabled");
+					$('#fecha_screening').attr("disabled","disabled");
+					$("#caja_fecha_estado").hide();
+					$('#fecha_estado').attr("disabled","disabled");
+					$('#var_med_id').removeAttr("disabled");
+					$('#caja_medico').show();
+				break;
+				case <?=ST_PP_COMPLETADO?>:
+					$("#caja_scr").attr("readonly","readonly");
+					$("#caja_rnd").attr("readonly","readonly");
+					$("#caja_rnd").show();
+					$("#caja_scr").show();
+					$("#caja_fecha_basal").hide();
+					$('#fecha_basal_realizada').attr("disabled","disabled");
+					$('#fecha_screening').attr("disabled","disabled");
+					$("#caja_fecha_scr").hide();
+					$("#caja_fecha_basal").hide();
+					$("#caja_fecha_estado").show();
+					$('#fecha_estado').removeAttr("disabled");
+					<?php if($propac_spp_id==ST_PP_PROTOCOLO){?>
+						$('#fecha_estado').val("");
+					<?php }?>
+					$('#var_med_id').attr("disabled","disabled");
+					$('#caja_medico').hide();
+				break;
+				case <?=ST_PP_DISCONTINUADO?>:
+					$("#caja_scr").attr("readonly","readonly");
+					$("#caja_rnd").attr("readonly","readonly");
+					$("#caja_rnd").show();
+					$("#caja_scr").show();
+					$("#caja_fecha_basal").hide();
+					$('#fecha_basal_realizada').attr("disabled","disabled");
+					$('#fecha_screening').attr("disabled","disabled");
+					$("#caja_fecha_scr").hide();
+					$("#caja_fecha_basal").hide();
+					$("#caja_fecha_estado").show();
+					$('#fecha_estado').removeAttr("disabled");
+					<?php if($propac_spp_id==ST_PP_PROTOCOLO){?>
+						$('#fecha_estado').val("");
+					<?php }?>
+					$('#var_med_id').attr("disabled","disabled");
+					$('#caja_medico').hide();
+				break;
+			}
+		});
+			switch(parseInt($('#var_spp_id').val(),10)){
+				case <?=ST_PP_FALLOSCR?>:
+					$("#var_nro_protocolo").attr("readonly","readonly");
+					$("#var_nro_random").attr("readonly","readonly");
+					$("#caja_rnd").hide();
+					$("#caja_scr").show();
+					$("#caja_fecha_scr").hide();
+					$("#caja_fecha_basal").hide();
+					$('#fecha_basal_realizada').attr("disabled","disabled");
+					$('#fecha_screening').attr("disabled","disabled");
+					$("#caja_fecha_estado").show();
+					$('#fecha_estado').removeAttr("disabled");
+					$('#var_med_id').attr("disabled","disabled");
+					$('#caja_medico').hide();
+				break;
+				case <?=ST_PP_SCR?>:
+					$("#caja_scr").removeAttr("readonly");
+					$("#var_nro_random").attr("readonly","readonly");
+					$("#caja_rnd").hide();
+					$("#caja_scr").show();
+					$("#caja_fecha_scr").show();
+					$("#caja_fecha_basal").hide();
+					$('#fecha_basal_realizada').attr("disabled","disabled");
+					$('#fecha_screening').removeAttr("disabled");
+					$("#caja_fecha_estado").hide();
+					$('#fecha_estado').attr("disabled","disabled");	
+					$('#caja_medico').show();
+				break;
+				case <?=ST_PP_PROTOCOLO?>:
+					$("#var_nro_protocolo").attr("readonly","readonly");
+					$("#var_nro_random").removeAttr("readonly");
+					$("#caja_rnd").show();
+					$("#caja_scr").show();
+					$("#caja_fecha_basal").show();
+					$('#fecha_basal_realizada').removeAttr("disabled");
+					$('#fecha_screening').attr("disabled","disabled");
+					$("#caja_fecha_estado").hide();
+					$('#fecha_estado').attr("disabled","disabled");
+					$('#caja_medico').show();
+				break;
+				case <?=ST_PP_COMPLETADO?>:
+					$("#caja_scr").attr("readonly","readonly");
+					$("#caja_rnd").attr("readonly","readonly");
+					$("#caja_rnd").show();
+					$("#caja_scr").show();
+					$("#caja_fecha_basal").hide();
+					$('#fecha_basal_realizada').attr("disabled","disabled");
+					$('#fecha_screening').attr("disabled","disabled");
+					$("#caja_fecha_scr").hide();
+					$("#caja_fecha_basal").hide();
+					$("#caja_fecha_estado").show();
+					$('#fecha_estado').removeAttr("disabled");
+					$('#var_med_id').attr("disabled","disabled");
+					$('#caja_medico').hide();
+				break;
+				case <?=ST_PP_DISCONTINUADO?>:
+					$("#caja_scr").attr("readonly","readonly");
+					$("#caja_rnd").attr("readonly","readonly");
+					$("#caja_rnd").show();
+					$("#caja_scr").show();
+					$("#caja_fecha_basal").hide();
+					$('#fecha_basal_realizada').attr("disabled","disabled");
+					$('#fecha_screening').attr("disabled","disabled");
+					$("#caja_fecha_scr").hide();
+					$("#caja_fecha_basal").hide();
+					$("#caja_fecha_estado").show();
+					$('#fecha_estado').removeAttr("disabled");
+					$('#var_med_id').attr("disabled","disabled");
+					$('#caja_medico').hide();
+				break;
+			}
 	});
 </script>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8"></head>
@@ -315,71 +516,102 @@ if($accion=="PROGRAMAR" && $permisoGuardar){
                         <?php if(strlen($id_proto)==0){?>
                           <div class="form-group col-md-4">
                             <label>*Protocolo</label>
-                            <? armarCombo(cProtocolo::obtenerComboNotPaciente($id), "var_pro_id", "form-control", $estadoDis, $propac_pro_id, "[Elegir]");?>
+                            <? armarCombo(cProtocolo::obtenerComboNotPaciente($id, array(ST_ACTIVO)), "var_pro_id", "form-control", $estadoDis, $propac_pro_id, "[Elegir]");?>
                           </div>
                          <?php }?>
-                          <div class="form-group col-md-4">
+                          <div class="form-group col-md-4" id="caja_scr">
                             <label>*Número Scr</label>
                             <input type="text" name="var_nro_protocolo" id="var_nro_protocolo" maxlength="255" class="form-control" <?=$estadoRO?> value="<?=$propac_nro_protocolo?>" />
                           </div>
-                          <div class="form-group col-md-4">
-                            <label>*Número random</label>
+                          <div class="form-group col-md-4" id="caja_rnd">
+                            <label>Número random</label>
                             <input type="text" name="var_nro_random" id="var_nro_random" maxlength="255" class="form-control" <?=$estadoRO?> value="<?=$propac_nro_random?>" />
                           </div>
 						</div>
-                        <div class="row">
+                        <div class="row" id="caja_fecha_estado">
                           <div class="form-inline col-md-4">
-                            <label>Fecha screening</label><br>
-                            <input type="text" readonly="readonly" size="20" id="fecha_screening" style="z-index:100;position:relative;max-width:99%;background-color:#FFFFFF" name="fecha_screening" class="form-control" value="<?=substr($fecha_screening,0,10)?>">&nbsp;<? if($permisoGuardar){?><input type="button" class="borrar-fecha form-control" value="X" onClick="this.form.fecha_screening.value = '';"><? }?>
-                          </div>
-                          <div class="form-group col-md-4">
-                            <label>Aprobó screening</label><br>
-                            <select name="var_screening" id="var_screening" class="form-control" <?=$estadoDis?>>
-                            	<option value=""  <?=($propac_screening==="" || is_null($propac_screening) ? "selected" : "")?>>[Elegir]</option>
-                                <option value="1" <?=($propac_screening==1 ? "selected" : "")?>>Sí</option>
-                                <option value="0" <?=($propac_screening===0 && !is_null($propac_screening) ? "selected" : "")?>>No</option>
-                            </select>
-                          </div>
-                        </div>
-                        <div class="row">
-                          <div class="form-inline col-md-4">
-                            <label>*Fecha basal</label><br>
-                            <input type="text" readonly="readonly" size="20" id="fecha_basal" style="z-index:100;position:relative;max-width:99%;background-color:#FFFFFF" name="fecha_basal" class="form-control" value="<?=substr($fecha_basal,0,10)?>">&nbsp;<? if($permisoGuardar){?><input type="button" class="borrar-fecha form-control" value="X" onClick="this.form.fecha_basal.value = '';"><? }?>
-                          </div>
-                          <div class="form-group col-md-4">
-                            <label>*Realizó visita basal (es como el OK)</label><br>
-                            <select name="var_basal" id="var_basal" class="form-control" <?=$estadoDis?>>
-                            	<option value=""  <?=($propac_basal=="" || is_null($propac_basal) ? "selected" : "")?>>[Elegir]</option>
-                                <option value="1" <?=($propac_basal==1 ? "selected" : "")?>>Sí</option>
-                                <option value="0" <?=($propac_basal==0 && strlen($propac_basal)>0 ? "selected" : "")?>>No</option>
-                            </select>
+                            <label>*Fecha estado</label><br>
+                            <input type="text" readonly="readonly" size="20" id="fecha_estado" style="z-index:100;position:relative;max-width:99%;background-color:#FFFFFF" name="fecha_estado" class="form-control" value="<?=(strlen($fecha_estado)>0 ? $fecha_estado : date("Y-m-d"))?>">&nbsp;<? if($permisoGuardar){?><input type="button" class="borrar-fecha form-control" value="X" onClick="this.form.fecha_estado.value = '';"><? }?>
                           </div>
 						</div>
-                        <div class="row">
+                        <div class="row" id="caja_fecha_scr">
+                          <div class="form-inline col-md-4">
+                            <br><label>*Fecha screening</label><br>
+                            <input type="text" readonly="readonly" size="20" id="fecha_screening" style="z-index:100;position:relative;max-width:99%;background-color:#FFFFFF" name="fecha_screening" class="form-control" value="<?=substr((strlen($fecha_screening)>0 ? $fecha_screening : date("Y-m-d")),0,10)?>">&nbsp;<? if($permisoGuardar){?><input type="button" class="borrar-fecha form-control" value="X" onClick="this.form.fecha_screening.value = '';"><? }?>
+                          </div>
+                          <!--
                           <div class="form-group col-md-4">
-                            <label>*Médico</label>&nbsp;
-                            <? 	armarCombo(cMedico::obtenerCombo(), "var_med_id", "form-control", " id=\"var_med_id\" ".$estadoDis, $propac_med_id, "[Elegir]");?>
+                            <label>Aprobó screening</label><br>
+                            <select name="var_screening" id="var_screening" class="form-control" <?//=$estadoDis?>>
+                            	<option value=""  <?//=($propac_screening==="" || is_null($propac_screening) ? "selected" : "")?>>[Elegir]</option>
+                                <option value="1" <?//=($propac_screening==1 ? "selected" : "")?>>Sí</option>
+                                <option value="0" <?//=($propac_screening===0 && !is_null($propac_screening) ? "selected" : "")?>>No</option>
+                            </select>
+                          </div>-->
+                        </div>
+                        <?php if(strlen($id_proto)>0){?>
+                            <div class="row" id="caja_fecha_basal">
+                              <div class="form-inline col-md-4">
+                                <label>Fecha basal agenda</label><br>
+                                <input type="text" disabled readonly="readonly" size="20" id="fecha_basal" style="z-index:100;position:relative;max-width:99%;background-color:#eee" name="fecha_basal" class="form-control" value="<?=substr($fecha_basal,0,10)?>">&nbsp;<?php //if($permisoGuardar){<input type="button" class="borrar-fecha form-control" value="X" onClick="this.form.fecha_basal.value = '';">}?>
+                              </div>
+                              <div class="form-inline col-md-4">
+                                <label>*Fecha realización basal</label><br>
+                                <input type="text" readonly="readonly" size="20" id="fecha_basal_realizada" style="z-index:100;position:relative;max-width:99%;background-color:#fff" name="fecha_basal_realizada" class="form-control" value="<?=substr($fecha_basal_realizada,0,10)?>">&nbsp;<?php if($permisoGuardar){?><input type="button" class="borrar-fecha form-control" value="X" onClick="this.form.fecha_basal_realizada.value = '';"><?php }?>
+                              </div>
+                              <div class="form-group col-md-4">
+                                <!--<label>*Realizó visita basal (es como el OK)</label><br>
+                                <select name="var_basal" id="var_basal" class="form-control" <?//=$estadoDis?>>
+                                    <option value=""  <?//=($propac_basal=="" || is_null($propac_basal) ? "selected" : "")?>>[Elegir]</option>
+                                    <option value="1" <?//=($propac_basal==1 ? "selected" : "")?>>Sí</option>
+                                    <option value="0" <?//=($propac_basal==0 && strlen($propac_basal)>0 ? "selected" : "")?>>No</option>
+                                </select>-->
+                              </div>
+                            </div>
+                        <?php }?>
+                        <div class="row">
+                          <div class="form-group col-md-4" id="caja_medico">
+                            <label><br>
+*Médico</label>&nbsp;
+                            <? 	armarCombo(cMedico::obtenerCombo(), "var_med_id", "form-control", " id=\"var_med_id\" ".$estadoDis, $medico_id, "[Elegir]");?>
 
                           </div>
+                          <div class="form-group col-md-4"><br>
+
+                            <label>*Estado paciente en protocolo</label>&nbsp;
 							<?php 
-							if(strlen($id_proto)>0){?>
-                              <div class="form-group col-md-4">
-                                <label>*Estado paciente en protocolo</label>&nbsp;
-                                <?php armarCombo(cEstadoProPaciente::obtenerCombo(ST_ACTIVO), "var_spp_id", "form-control", " id=\"var_spp_id\" ".$estadoDis, $propac_spp_id, "[Elegir]");?>
-                              </div>
+							if(strlen($id_proto)>0){
+								switch($propac_spp_id){
+									case ST_PP_SCR:
+										$vecEstadosProPac=array(ST_PP_SCR,ST_PP_PROTOCOLO,ST_PP_FALLOSCR);
+									break;
+									case ST_PP_FALLOSCR:
+										$vecEstadosProPac=array(ST_PP_SCR,ST_PP_FALLOSCR);
+									break;
+									case ST_PP_PROTOCOLO:
+										$vecEstadosProPac=array(ST_PP_PROTOCOLO,ST_PP_COMPLETADO,ST_PP_DISCONTINUADO);
+									break;
+									case ST_PP_DISCONTINUADO:
+										$vecEstadosProPac=array(ST_PP_DISCONTINUADO,ST_PP_COMPLETADO,ST_PP_PROTOCOLO);
+									break;
+									case ST_PP_COMPLETADO:
+										$vecEstadosProPac=array(ST_PP_COMPLETADO,ST_PP_DISCONTINUADO,ST_PP_PROTOCOLO);
+									break;
+								}?>
+                                <?php armarCombo(cEstadoProPaciente::obtenerCombo(ST_ACTIVO,$vecEstadosProPac), "var_spp_id", "form-control", " id=\"var_spp_id\" ".$estadoDis, $propac_spp_id, "[Elegir]");?>
+
 							<?php } else {
-								echo('<input type="hidden" name="var_spp_id" value="'.ST_PP_ACTIVO.'">');
+								echo('<select disabled class="form-control"><option value="'.ST_PP_SCR.'">Screening</option></select>');
+								echo('<input type="hidden" name="var_spp_id" id="var_spp_id" value="'.ST_PP_SCR.'">');
 							}?>
-
-
-
+                           </div>
                         </div>
                         <div class="row">
                         <?php if($permisoGuardar){?>
 						  	<button type="button" class="btn boton-generico btn-primary" onClick="validarFormulario('','')">Guardar</button>
                         <?php } else {
 							if($faltan_visitas==true){?>
-						  	<button type="button" class="btn boton-generico btn-primary" onClick="alert('No se pueden guardar los cambios porque el protocolo no tiene visitas Screening y Basal')">Guardar</button>
+						  	<button type="button" class="btn boton-generico btn-primary" onClick="alert('Para guardar los cambios, el protocolo debe tener al menos cargadas en su cronograma las visitas screening y basal')">Guardar</button>
 						<?php }
 						}?>
                         </div>

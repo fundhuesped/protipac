@@ -34,18 +34,7 @@ if(!$permisoVerVisitasPacientes){
 		}
 		$permisoGuardar=false;
 	}
-	if(strlen($id_proto)>0){
-		$rPro=cProtocolo::obtenerProtocolo($id_proto,$id_pac);
-		if($rPro->cantidad()==0){
-			cDB::cerrar($conexion);
-			header("Location:index.php");
-			exit();
-		} else {
-			foreach(array_keys($rPro->CAMPOS) as $campo){
-				${$campo}=$rPro->campo($campo,0);
-			}
-		}
-	}
+
 	$estadoEdit="";
 	if(!empty($id_visita)){
 		$estadoEdit="disabled";
@@ -58,6 +47,7 @@ if(!$permisoVerVisitasPacientes){
 		foreach(array_keys($rVis->CAMPOS) as $campo){
 			${$campo}=$rVis->campo($campo,0);
 		}
+		$id_pac=$provis_pac_id;
 	} else {
 		$rPac=cPaciente::obtenerPaciente($id_pac);
 		if($rPac->cantidad()>0){
@@ -68,6 +58,21 @@ if(!$permisoVerVisitasPacientes){
 			cDB::cerrar($conexion);
 			header("Location:index.php");
 			exit();
+		}
+	}
+	if(strlen($id_proto)>0){
+		$rPro=cProtocolo::obtenerProtocolo($id_proto,$id_pac);
+		if($rPro->cantidad()==0){
+			cDB::cerrar($conexion);
+			header("Location:index.php");
+			exit();
+		} else {
+			foreach(array_keys($rPro->CAMPOS) as $campo){
+				${$campo}=$rPro->campo($campo,0);
+			}
+			if($propac_spp_id!=ST_PP_PROTOCOLO){
+				$permisoGuardar=false;
+			}
 		}
 	}
 
@@ -84,7 +89,11 @@ if($accion=="GUARDAR" && $permisoGuardar){
 	}
 	$res=cPaciente::modificarVisitaPacienteProtocolo($_POST, $errorVar, $id_proto, $id_pac, $id_visita);
 	cDB::cerrar($conexion);
-	header("Location:".$dest."?id=".$id_pac."&id_proto=".$id_proto);
+	if($dest=="agenda.php"){
+		header("Location:".$dest."?v=1");
+	} else {
+		header("Location:".$dest."?id=".$id_pac."&id_proto=".$id_proto);
+	}
 	exit();
 }
 $porcentaje=0;
@@ -120,6 +129,11 @@ if(!empty($id_visita)){
 				if($("#var_descripcion").val()==""){
 					errores+="- Debe ingresar el nombre de la visita<br>";
 				}
+                <?php if($provis_tiv_id==TIPO_VIS_ESPO || strlen($id_visita)==0){?>
+				if($('#var_laboratorio').val()==""){
+					errores+="- Debe si es con laboratorio<br>";
+				}
+				<?php }?>
                 <?php if($provis_tiv_id!=TIPO_VIS_ESPO && strlen($id_visita)>0){?>
 					if($('#var_ventana_max').val()==""){
 						errores+="- Debe ingresar la ventana máxima<br>";
@@ -143,6 +157,10 @@ if(!empty($id_visita)){
 						errores+="- Debe ingresar la hora en que se realizó con minutos<br>";
 					}
 				}
+				if($('#var_sv_id').val()==<?=ST_VIS_PROGRAMADA?> && ($("#var_fecha_realizada").val()!="" || $("#hora_inicio_realizada").val()!="" || $("#minutos_inicio_realizada").val()!="")){
+					errores+="- No puede guardar fecha de realización para una visita programada<br>";
+				}
+
 				<?php }?>
 				if($('#var_med_id').val()==""){
 					errores+="- Debe ingresar el Médico<br>";
@@ -168,9 +186,15 @@ if(!empty($id_visita)){
 							document.datos.submit();
 						});
 					}
+					<?php if($permisoGuardar){?>
 					$("#alerta-formulario").find("#alerta-titulo").text("Faltan completar datos.");
 					$("#alerta-formulario").find('#alerta-cuerpo').html(errores.replace(/\n/g, "<br />"));
 					$('#alerta-formulario').modal('show');
+					<?php } else {?>
+							document.datos.action=varDest;
+							document.datos.target="_self";
+							document.datos.submit();
+					<?php }?>
 				}
 			} else {
 				if(varDest==""){
@@ -184,7 +208,8 @@ if(!empty($id_visita)){
 					document.datos.action="";
 					document.datos.submit();
 				} else {
-					$("#alerta-formulario").find("#alerta-titulo").text("Los datos no se guardaron.");
+					<?php if($permisoGuardar){?>
+					$("#alerta-formulario").find("#alerta-titulo").text("Si ha modificado datos, no se guardarán.");
 					$('#boton_modal_continuar').click(function(){
 						document.datos.v.value=1;
 						document.datos.target="_self";
@@ -194,8 +219,15 @@ if(!empty($id_visita)){
 					});
 					$('#boton_modal_continuar').text("Abandonar SIN guardar");
 					$('#boton_modal_cerrar').text("Permanecer en el formulario");
-					$("#alerta-formulario").find('#alerta-cuerpo').html("Debe indicar si desea abandonar el formulario sin guardar los datos, o bien permanecer y hacer clic en el botón guardar");
-					$("#alerta-formulario").modal('show');				
+					$("#alerta-formulario").find('#alerta-cuerpo').html("Debe indicar si desea abandonar el formulario sin guardar, o bien permanecer y hacer clic en el botón guardar");
+					$("#alerta-formulario").modal('show');
+					<?php } else {?>
+						document.datos.v.value=1;
+						document.datos.target="_self";
+						document.datos.accion.value="";			
+						document.datos.action=varDest;
+						document.datos.submit();
+					<?php }?>
 				}
 			}
 		<? } else {?>
@@ -206,7 +238,12 @@ if(!empty($id_visita)){
 			document.datos.submit();
 		<? }//end if $permisoGuardar?>
 	}
-	
+	function protocoloFin(){
+		$("#alerta").find("#alerta-titulo").text("Atención.");
+		$("#alerta").find("#alerta-cuerpo").html("No puede modificar visitas si el estado del paciente no es \"En Protocolo\"");
+		$("#alerta").modal('show');
+
+	}
 	function verLlamada(){
 		document.datos.action='formulario_llamada.php';
 		document.datos.submit();
@@ -287,6 +324,17 @@ if(!empty($id_visita)){
                             <label>*Visita</label>&nbsp;
                                 <input type="text" class="form-control" name="var_descripcion" id="var_descripcion" placeholder="Ingrese nombre" maxlength="255" <?=$estadoEdit?> value="<?=$nombre_visita?>">
                           </div>
+                          <?php if($provis_tiv_id==TIPO_VIS_ESPO || strlen($id_visita)==0){?>
+                          <div class="form-group col-md-4">
+                            <label>*Laboratorio</label>
+                            <select name="var_laboratorio" id="var_laboratorio" class="form-control" <?=$estadoDis?>>
+                            	<option value=""  <?=($provis_laboratorio=="" || is_null($provis_laboratorio) ? "selected" : "")?>>[Elegir]</option>
+                                <option value="1" <?=($provis_laboratorio==1 ? "selected" : "")?>>Sí</option>
+                                <option value="0" <?=($provis_laboratorio==0 && !is_null($provis_laboratorio) ? "selected" : "")?>>No</option>
+                            </select>
+                          </div>
+                          <?php }//end if?>
+
 						  <?php if($provis_tiv_id!=TIPO_VIS_ESPO && strlen($id_visita)>0){?>
                           <div class="form-group col-md-4">
                             <label>*Ventana Máx.</label>
@@ -337,7 +385,35 @@ if(!empty($id_visita)){
                        </div>
                        <?php if(strlen($id_visita)>0){?>
                        <div class="row">
-                          <div class="form-group col-md-4">&nbsp;</div>
+                          
+                          <div class="form-inline col-md-4">
+                            <label>*Fecha y hora agenda original</label><br>
+                            <input type="text" disabled size="20" id="var_fecha_agenda_original" style="z-index:100;position:relative;max-width:99%;" name="var_fecha_agenda_original" class="form-control" value="<?=substr($provis_fecha_agenda_original,0,10)?>">
+                                <?php
+                                $hora_agenda_original=explode(":",$provis_hora_agenda_original);
+                                $hora_agenda_original_hora=$hora_agenda_original[0];
+                                $hora_agenda_original_min=$hora_agenda_original[1];
+                                ?>
+                                <select style="max-width:100px" disabled name="hora_agenda_original" id="hora_agenda_original" class="form-control">
+                                    <option value="">[Hora]</option>
+                                    <?php
+                                    for($i=0;$i<=23;$i++){
+                                        echo('<option value="'.$i.'" '.($hora_agenda_original_hora==$i && strlen($hora_agenda_original_hora)>0 ? "selected":"").'>'.completarNumeroIzq($i,2).'</option>');
+                                    }
+                                    ?>
+                                </select>:
+                                <select style="max-width:100px" disabled name="minutos_agenda_original" id="minutos_agenda_original" class="form-control">
+                                    <option value="">[Min.]</option>
+                                    <?php
+                                    for($i=0;$i<=59;$i++){
+                                        echo('<option value="'.$i.'" '.($hora_agenda_original_min==$i && strlen($hora_agenda_original_min)>0 ? "selected":"").'>'.completarNumeroIzq($i,2).'</option>');
+                                    }
+                                    ?>
+                                </select>
+                          </div>
+
+
+                          
                           <div class="form-inline col-md-4">
                             <label>*Fecha realizada</label><br>
                             <input type="text" readonly="readonly" size="20" id="var_fecha_realizada" style="z-index:100;position:relative;max-width:99%;background-color:#FFFFFF" name="var_fecha_realizada" class="form-control" value="<?=substr($provis_fecha_realizada,0,10)?>">&nbsp;<? if($permisoGuardar){?><input type="button" class="borrar-fecha form-control" value="X" onClick="this.form.var_fecha_realizada.value = '';"><? }?>
@@ -381,7 +457,10 @@ if(!empty($id_visita)){
                           </div>
                           <div class="form-group col-md-4">
                             <label>*Tipo visita</label>&nbsp;
-                            <?php armarCombo(cTipoVisita::obtenerCombo((strlen($id_visita)>0 ? array() : array(TIPO_VIS_ESPO))), "var_tiv_id", "form-control", " id=\"var_tiv_id\"".$estadoEdit, $provis_tiv_id, "[Elegir]");?>
+                            <?php armarCombo(cTipoVisita::obtenerCombo((strlen($id_visita)>0 ? array() : array(TIPO_VIS_ESPO))), "var_tiv_id", "form-control", " id=\"var_tiv_id\"".$estadoEdit, $provis_tiv_id, "[Elegir]");
+							if($estadoEdit=="disabled"){?>
+                            	<input type="hidden" name="var_tiv_id" value="<?=($provis_tiv_id!=TIPO_VIS_ESPO && strlen($provis_tiv_id)>0 ? $provis_tiv_id : TIPO_VIS_ESPO)?>">
+                            <?php }?>
                           </div>
                           <div class="form-group col-md-4">
                             <label>*Estado</label>&nbsp;
@@ -390,9 +469,12 @@ if(!empty($id_visita)){
                           </div>
                         </div>
                         <div class="row">
-                        <? if($permisoGuardar){?>
+                        <?php if($permisoGuardar){?>
 						  	<button type="button" class="btn boton-generico btn-primary" onClick="validarFormulario('','')">Guardar</button>
-                        <? }?>
+                        <?php } else {
+							if($propac_spp_id!=ST_PP_PROTOCOLO)?>
+						  	<button type="button" class="btn boton-generico btn-primary" onClick="protocoloFin()">Guardar</button>
+                        <?php }?>
                         </div>
 
 							<?php if($permisoVerVisitasPacientes && !empty($id_visita)){?>

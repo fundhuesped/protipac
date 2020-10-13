@@ -73,7 +73,7 @@ if($accion=="GUARDAR" && $permisoGuardar){
 	$errorVar=$_POST['errorVar'];
 	$res=cProtocolo::modificarCronogramaVisita($_POST, $errorVar, $id, $id_visita);
 	cDB::cerrar($conexion);
-	header("Location:".$dest."?v=1");
+	header("Location:".$dest."?id=".$id);
 	exit();
 }
 $porcentaje=0;
@@ -109,6 +109,12 @@ if(!empty($id_visita)){
 				}
 				if($('#var_dias_basal').val()==""){
 					errores+="- Debe la cantidad de días desde la visita target<br>";
+				} else {
+					if($('#var_tiv_id').val()!=""){
+						if(parseInt($('#var_dias_basal').val(),10)>=0 && $('#var_tiv_id').val()==<?=TIPO_VIS_SCR?>){
+							errores+="- Días target para screening tiene que ser menor a cero<br>";
+						}
+					}
 				}
 				if($('#var_ventana_max').val()!="" && $('#var_ventana_min').val()!=""){
 				
@@ -121,7 +127,7 @@ if(!empty($id_visita)){
 					}
 				}
 				if($('#var_laboratorio').val()==""){
-					errores+="- Debe ingresar el laboratorio<br>";
+					errores+="- Debe indicar si es con laboratorio<br>";
 				}
 				if($('#var_tiv_id').val()==""){
 					errores+="- Debe ingresar el tipo de visita<br>";
@@ -141,9 +147,15 @@ if(!empty($id_visita)){
 							document.datos.submit();
 						});
 					}
+					<?php if($permisoGuardar){?>
 					$("#alerta-formulario").find("#alerta-titulo").text("Faltan completar datos.");
 					$("#alerta-formulario").find('#alerta-cuerpo').html(errores.replace(/\n/g, "<br />"));
 					$('#alerta-formulario').modal('show');
+					<?php } else {?>
+							document.datos.action=varDest;
+							document.datos.target="_self";
+							document.datos.submit();
+					<?php }?>
 				}
 			} else {
 				if(varDest==""){
@@ -158,7 +170,8 @@ if(!empty($id_visita)){
 					document.datos.action="";
 					document.datos.submit();
 				} else {
-					$("#alerta-formulario").find("#alerta-titulo").text("Los datos no se guardaron.");
+					<?php if($permisoGuardar){?>
+					$("#alerta-formulario").find("#alerta-titulo").text("Si ha modificado datos, no se guardarán.");
 					$('#boton_modal_continuar').click(function(){
 						document.datos.v.value=1;
 						document.datos.target="_self";
@@ -168,8 +181,15 @@ if(!empty($id_visita)){
 					});
 					$('#boton_modal_continuar').text("Abandonar SIN guardar");
 					$('#boton_modal_cerrar').text("Permanecer en el formulario");
-					$("#alerta-formulario").find('#alerta-cuerpo').html("Debe indicar si desea abandonar el formulario sin guardar los datos, o bien permanecer y hacer clic en el botón guardar");
-					$("#alerta-formulario").modal('show');				
+					$("#alerta-formulario").find('#alerta-cuerpo').html("Debe indicar si desea abandonar el formulario sin guardar, o bien permanecer y hacer clic en el botón guardar");
+					$("#alerta-formulario").modal('show');
+					<?php } else {?>
+						document.datos.v.value=1;
+						document.datos.target="_self";
+						document.datos.accion.value="";			
+						document.datos.action=varDest;
+						document.datos.submit();
+					<?php }?>			
 				}
 			}
 		<? } else {?>
@@ -229,6 +249,27 @@ if(!empty($id_visita)){
 				$("#capa_otro_nombre").hide();
 			break;
 		}		
+		
+		$('select[name=var_tiv_id]').change(function() {
+			switch(parseInt($(this).val(),10)){
+				case <?=TIPO_VIS_BASAL?>:
+					$("#var_dias_basal").attr("readonly","readonly");
+					$("#var_dias_basal").val("0");
+				break;
+				default:
+					$("#var_dias_basal").removeAttr("readonly");
+				break;
+			}
+		});
+		switch(parseInt($('select[name=var_tiv_id]').val(),10)){
+			case <?=TIPO_VIS_BASAL?>:
+				$("#var_dias_basal").attr("readonly","readonly");
+				$("#var_dias_basal").val("0");
+			break;
+			default:
+				$("#var_dias_basal").removeAttr("readonly");
+			break;
+		}		
 	});
 </script>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8"></head>
@@ -274,14 +315,13 @@ if(!empty($id_visita)){
                         <? }?>
                         <div class="row">
                           <div class="form-group col-md-3">
-                            <label>*Visita</label>&nbsp;
+                            <label>*Buscar nombre</label>&nbsp;
                             <div class="ayuda">
                                 <img src="images/ayuda.png">
                               <span class="tooltiptext">
                                 Elegir nombre de visita. Si no se encuentra, elegir opción OTRO al final.
                               </span>
                             </div>
-                            &nbsp;Elegir nombre de visita:
                             <? 	armarCombo(cVisitaNombre::obtenerCombo(), "visita_crvn_id", "form-control", " id=\"visita_crvn_id\" ".$estadoDis, $cron_crvn_id, "[Buscar nombre]");?>
                             <div id="capa_otro_nombre">
                                 <label>*Otro nombre visita</label>

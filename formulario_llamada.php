@@ -118,9 +118,16 @@ if(!empty($id_llamada)){
 							document.datos.submit();
 						});
 					}
+				
+					<?php if($permisoGuardar){?>
 					$("#alerta-formulario").find("#alerta-titulo").text("Faltan completar datos.");
 					$("#alerta-formulario").find('#alerta-cuerpo').html(errores.replace(/\n/g, "<br />"));
 					$('#alerta-formulario').modal('show');
+					<?php } else {?>
+							document.datos.action=varDest;
+							document.datos.target="_self";
+							document.datos.submit();
+					<?php }?>
 				}
 			} else {
 				if(varDest==""){
@@ -133,19 +140,27 @@ if(!empty($id_llamada)){
 					document.datos.target="_self";
 					document.datos.action="";
 					document.datos.submit();
-				} else {
-					$("#alerta-formulario").find("#alerta-titulo").text("Los datos no se guardaron.");
+				} else {	
+					<?php if($permisoGuardar){?>
+					$("#alerta-formulario").find("#alerta-titulo").text("Si ha modificado datos, no se guardarán.");
 					$('#boton_modal_continuar').click(function(){
 						document.datos.v.value=1;
 						document.datos.target="_self";
 						document.datos.accion.value="";			
-						document.datos.action="<?=$dest?>";
+						document.datos.action=varDest;
 						document.datos.submit();
 					});
 					$('#boton_modal_continuar').text("Abandonar SIN guardar");
 					$('#boton_modal_cerrar').text("Permanecer en el formulario");
-					$("#alerta-formulario").find('#alerta-cuerpo').html("Debe indicar si desea abandonar el formulario sin guardar los datos, o bien permanecer y hacer clic en el botón guardar");
-					$("#alerta-formulario").modal('show');				
+					$("#alerta-formulario").find('#alerta-cuerpo').html("Debe indicar si desea abandonar el formulario sin guardar, o bien permanecer y hacer clic en el botón guardar");
+					$("#alerta-formulario").modal('show');
+					<?php } else {?>
+						document.datos.v.value=1;
+						document.datos.target="_self";
+						document.datos.accion.value="";			
+						document.datos.action=varDest;
+						document.datos.submit();
+					<?php }?>
 				}
 			}
 		<? } else {?>

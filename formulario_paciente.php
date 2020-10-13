@@ -22,8 +22,18 @@ if(!$permisoCargarPaciente){
 	$formulario="pacientes";
 	$accion=filter_var($_POST['accion'], FILTER_SANITIZE_STRING);
 	$id=filter_var($_REQUEST['id'], FILTER_SANITIZE_NUMBER_INT);
+	$var_nro_documento=filter_var($_POST['var_nro_documento'], FILTER_SANITIZE_NUMBER_INT);
 	$dest=filter_var($_POST['dest'], FILTER_SANITIZE_STRING);
-	
+	$doc_valido=filter_var($_POST['doc_valido'], FILTER_SANITIZE_NUMBER_INT);
+	if($doc_valido==1){
+		$doc_valido=true;
+	} else {
+		if(strlen($id)>0){
+			$doc_valido=true;
+		} else {
+			$doc_valido=false;
+		}
+	}
 	$buscar_fecha_desde=filter_var($_POST['buscar_fecha_desde'], FILTER_SANITIZE_STRING);
 	$buscar_fecha_hasta=filter_var($_POST['buscar_fecha_hasta'], FILTER_SANITIZE_STRING);
 	$buscar_protocolo=filter_var($_POST['buscar_protocolo'], FILTER_SANITIZE_NUMBER_INT);
@@ -69,7 +79,6 @@ if(!empty($id)){
 
 <?php include_once("includes/head.php");?>
 <script language="javascript" charset="utf-8">
-	var cant_camaras=0;//valor inicial para selector de camaras	
 	function validarFormulario(varDest, varMenu){
 		<?php if($permisoGuardar){?>
 			varError=0;
@@ -79,10 +88,45 @@ if(!empty($id)){
 				if($('#var_tid_id').val()==""){
 					errores+="- Tipo de documento<br>";
 				}
+				
 				if($('#var_nro_documento').val()==""){
 					errores+="- Número de documento<br>";
+				} else {
+					var nuevo_doc=$('#var_nro_documento').val();
+					if(isNaN(nuevo_doc)){
+						errores+="- El Número de documento debe ser un número, no puede contener puntos, ni guiones.\n";
+					} else {
+						//if(nuevo_doc.length!=11){
+						//	errores+="- El CUIT de empresa debe ser un número de 11 dígitos, sin puntos ni guiones.\n";
+						//} else {
+							params="tabla=paciente&campo=pac_nro_documento&valor="+$('#var_nro_documento').val();
+							<? if($id>0){?>
+								params+="&campoDistinto=pac_id&valorDistinto=<?=$id?>";
+							<? } else {?>
+								params+="&usuario_nuevo=1";
+							<? }?>
+							var resultado=$.ajax({
+									beforeSend: function(){},
+									complete: function(){ },
+									success: function(html){ },
+									async:false,
+									method: "post",url: "verificar_codigo.php",data: params, contentType : "application/x-www-form-urlencoded; charset=iso-8859-1"
+							}).responseText;
+							if(resultado=="1"){
+								errores+="- El Número de documento ingresado corresponde a otra persona que ya ha sido cargada en el sistema\n";
+							}
+							if(resultado=="2"){
+								errores+="- El Número de documento es incorrecto\n";
+							}
+						//}
+					}
 				}
-				if($('#var_fecha_ingreso').val()==""){
+
+				/*if($('#var_nro_documento').val()==""){
+					errores+="- Número de documento<br>";
+				}*/
+				<?php if($doc_valido){?>
+				if($('#var_fecha_ingreso').val()=="" || $('#var_fecha_ingreso').val()=="//"){
 					errores+="- Fecha de ingreso<br>";
 				} else {
 					if(isDateValidFull($('#var_fecha_ingreso').val(), "/")){
@@ -97,18 +141,22 @@ if(!empty($id)){
 						errores+="- Fecha de ingreso tiene un formato inválido. Debe ser dd/mm/aaaa<br>";
 					}
 				}
+				<?php }?>
+				if($('#var_iniciales').val()==""){
+					errores+="- Iniciales<br>";
+				}
 				if($('#var_nombre').val()==""){
 					errores+="- Nombre<br>";
 				}
-				if($('#var_segundo_nombre').val()==""){
+				/*if($('#var_segundo_nombre').val()==""){
 					errores+="- Segundo nombre<br>";
-				}
+				}*/
 				if($('#var_apellido').val()==""){
 					errores+="- Apellido<br>";
 				}
-				if($('#var_segundo_apellido').val()==""){
+				/*if($('#var_segundo_apellido').val()==""){
 					errores+="- Segundo Apellido<br>";
-				}
+				}*/
 				/*if($('#var_alias').val()==""){
 					errores+="- Nombre autopercibido<br>";
 				}*/
@@ -118,7 +166,8 @@ if(!empty($id)){
 				if($('#var_gen_id').val()==""){
 					errores+="- Género<br>";
 				}
-				if($('#var_fecha_nacimiento').val()==""){
+				<?php if($doc_valido){?>
+				if($('#var_fecha_nacimiento').val()=="" || $('#var_fecha_nacimiento').val()=="//"){
 					errores+="- Fecha de nacimiento<br>";
 				} else {
 					if(isDateValidFull($('#var_fecha_nacimiento').val(), "/")){
@@ -137,6 +186,7 @@ if(!empty($id)){
 						errores+="- Fecha de nacimiento tiene un formato inválido. Debe ser dd/mm/aaaa<br>";
 					}
 				}
+				<?php }?>
 				/*if($('#var_docmicilio_calle').val()==""){
 					errores+="- Domicilio Calle<br>";
 				}
@@ -195,9 +245,13 @@ if(!empty($id)){
 							document.location=varDest;
 						});
 					}
+					<?php if($permisoGuardar){?>
 					$("#alerta-formulario").find("#alerta-titulo").text("Faltan completar datos.");
 					$("#alerta-formulario").find('#alerta-cuerpo').html(errores.replace(/\n/g, "<br />"));
 					$('#alerta-formulario').modal('show');
+					<?php } else {?>
+							document.location=varDest;
+					<?php }?>
 				}
 			} else {
 				if(varDest==""){
@@ -211,7 +265,8 @@ if(!empty($id)){
 					document.datos.action="";
 					document.datos.submit();
 				} else {
-					$("#alerta-formulario").find("#alerta-titulo").text("Los datos no se guardaron.");
+					<?php if($permisoGuardar){?>
+					$("#alerta-formulario").find("#alerta-titulo").text("Si ha modificado datos, no se guardarán.");
 					$('#boton_modal_continuar').click(function(){
 						document.datos.v.value=1;
 						document.datos.target="_self";
@@ -221,8 +276,15 @@ if(!empty($id)){
 					});
 					$('#boton_modal_continuar').text("Abandonar SIN guardar");
 					$('#boton_modal_cerrar').text("Permanecer en el formulario");
-					$("#alerta-formulario").find('#alerta-cuerpo').html("Debe indicar si desea abandonar el formulario sin guardar los datos, o bien permanecer y hacer clic en el botón guardar");
-					$("#alerta-formulario").modal('show');				
+					$("#alerta-formulario").find('#alerta-cuerpo').html("Debe indicar si desea abandonar el formulario sin guardar, o bien permanecer y hacer clic en el botón guardar");
+					$("#alerta-formulario").modal('show');
+					<?php } else {?>
+						document.datos.v.value=1;
+						document.datos.target="_self";
+						document.datos.accion.value="";			
+						document.datos.action=varDest;
+						document.datos.submit();
+					<?php }?>
 				}
 			}
 		<?php } else {?>
@@ -233,7 +295,52 @@ if(!empty($id)){
 			document.datos.submit();
 		<?php }//end if $permisoGuardar?>
 	}
-	
+	function validarDoc(){
+		var errores="";
+		if($('#var_nro_documento').val()==""){
+			errores+="- Debe completar el Número de documento<br>";
+		} else {
+			var nuevo_doc=$('#var_nro_documento').val();
+			if(isNaN(nuevo_doc)){
+				errores+="- El Número de documento debe ser un número, no puede contener puntos, ni guiones.\n";
+			} else {
+				//if(nuevo_doc.length!=11){
+				//	errores+="- El CUIT de empresa debe ser un número de 11 dígitos, sin puntos ni guiones.\n";
+				//} else {
+					params="tabla=paciente&campo=pac_nro_documento&valor="+$('#var_nro_documento').val();
+					<? if($id>0){?>
+						params+="&campoDistinto=pac_id&valorDistinto=<?=$id?>";
+					<? } else {?>
+						params+="&usuario_nuevo=1";
+					<? }?>
+					var resultado=$.ajax({
+							beforeSend: function(){},
+							complete: function(){ },
+							success: function(html){ },
+							async:false,
+							method: "post",url: "verificar_codigo.php",data: params, contentType : "application/x-www-form-urlencoded; charset=iso-8859-1"
+					}).responseText;
+					if(resultado=="1"){
+						errores+="- El Número de documento ingresado corresponde a otra persona que ya ha sido cargada en el sistema\nPuede buscarlo en el listado de pacientes para verificar si es un error de carga o bien el paciente ya fue cargado previamente.";
+					}
+					if(resultado=="2"){
+						errores+="- El Número de documento es incorrecto\n";
+					}
+				//}
+			}
+		}
+		if(errores!=""){
+			$("#alerta").find("#alerta-titulo").text("Errores");
+			$("#alerta").find('#alerta-cuerpo').html(errores.replace(/\n/g, "<br />"));
+			$('#alerta').modal('show');
+		} else {
+			document.datos.doc_valido.value=1;
+			document.datos.action="";
+			document.datos.target="_self";
+			document.datos.submit();			
+		}
+
+	}
 	function verVisita(varIdVisita,varIdProto){
 		document.datos.id_visita.value=varIdVisita;
 		document.datos.id_proto.value=varIdProto;
@@ -339,6 +446,7 @@ if(!empty($id)){
         <input type="hidden" name="id_pac" value="<?=$id?>" />
         <input type="hidden" name="id_proto" value="" />
         <input type="hidden" name="id_visita" value="" />
+        <input type="hidden" name="doc_valido" value="" />
 		<?php include_once("indexh.php");?>
         <section class="breadcrumb-sky">
             <div class="container">
@@ -363,211 +471,216 @@ if(!empty($id)){
 								</p>
 							<?php }?>
                         <div class="row">
-                          <div class="form-group col-md-3 col-xs-12">
-                                <label>*Tipo documento</label>
-                                <?php armarCombo(cTipoDocumento::obtenerCombo(array(ST_ACTIVO)), "var_tid_id", "form-control", "id=\"var_tid_id\"".$estadoRO, $pac_tid_id, "[Elegir tipo de documento]");?>
-                          </div>
                           <div class="form-group col-md-3">
                             <label>*Nro. documento</label>
-                            <input type="text" name="var_nro_documento" id="var_nro_documento" maxlength="255" class="form-control" <?=$estadoRO?> value="<?=$pac_nro_documento?>" data-a-dec="," data-a-sep="" data-a-sign="" data-v-min="0" data-v-max="999999999" />
+                            <input type="text" name="var_nro_documento" id="var_nro_documento" maxlength="255" class="form-control" <?=$estadoRO?> value="<?=(strlen($id)==0 ? $var_nro_documento : $pac_nro_documento)?>" data-a-dec="," data-a-sep="" data-a-sign="" data-v-min="0" data-v-max="999999999" />
+                            <?php if(!$doc_valido && strlen($id)==0){?>
+                                <button type="button" class="btn boton-generico-left btn-primary" onClick="validarDoc('','')">Validar Documento</button>
+                            <? }?>
                           </div>
-                          <div class="form-inline col-md-3">
-                            <label>*Fecha ingreso</label><br>
-                            <input type="text" readonly="readonly" size="20" id="var_fecha_ingreso" style="z-index:100;position:relative;max-width:99%;background-color:#FFFFFF" name="var_fecha_ingreso" class="form-control" value="<?=convertirFechaComprimido($pac_fecha_ingreso)?>">&nbsp;<?php if($permisoGuardar){?><input type="button" class="borrar-fecha form-control" value="X" onClick="this.form.var_fecha_ingreso.value = '';"><?php }?>
-                          </div>
-                          <div class="form-group col-md-3">
-                            <label>Iniciales</label>
-                            <input type="text" name="iniciales" id="iniciales" maxlength="255" class="form-control" value="<?=$pac_iniciales?>" disabled  />
-                          </div>
-                        </div>
-                        <div class="row">
-                          <div class="form-group col-md-3">
-                            <label>*Nombre</label>
-                            <input type="text" name="var_nombre" id="var_nombre" maxlength="255" class="form-control" <?=$estadoRO?> value="<?=$pac_nombre?>" />
-                          </div>
-                          <div class="form-group col-md-3">
-                            <label>*Segundo nombre</label>
-                            <input type="text" name="var_segundo_nombre" id="var_segundo_nombre" maxlength="255" class="form-control" <?=$estadoRO?> value="<?=$pac_segundo_nombre?>" />
-                          </div>
-                          <div class="form-group col-md-3">
-                            <label>*Apellido</label>
-                            <input type="text" name="var_apellido" id="var_apellido" maxlength="255" class="form-control" <?=$estadoRO?> value="<?=$pac_apellido?>" />
-                          </div>
-                          <div class="form-group col-md-3">
-                            <label>Segundo apellido</label>
-                            <input type="text" name="var_segundo_apellido" id="var_segundo_apellido" maxlength="255" class="form-control" <?=$estadoRO?> value="<?=$pac_segundo_apellido?>" />
-                          </div>
-						</div>
-                        <div class="row">
-                          <div class="form-group col-md-3">
-                            <label>Nombre autopercibido</label>
-                            <input type="text" name="var_alias" id="var_alias" maxlength="255" class="form-control" <?=$estadoRO?> value="<?=$pac_alias?>" />
-                          </div>
-                          <div class="form-group col-md-3">
-                            <label>*Sexo</label>
-                            <?php armarCombo(cSexo::obtenerCombo(), "var_sex_id", "form-control", $estadoDis, $pac_sex_id, "[Elegir]");?>
-                          </div>
-                          <div class="form-group col-md-3">
-                            <label>*Género</label>
-                            <?php armarCombo(cGenero::obtenerCombo(), "var_gen_id", "form-control", $estadoDis, $pac_gen_id, "[Elegir]");?>
-                          </div>
-                          <div class="form-inline col-md-3">
-                            <label>*Fecha nacimiento</label><br>
-                            <input type="text" readonly="readonly" size="20" id="var_fecha_nacimiento" style="z-index:100;position:relative;max-width:99%;background-color:#FFFFFF" name="var_fecha_nacimiento" class="form-control" value="<?=convertirFechaComprimido($pac_fecha_nacimiento)?>">&nbsp;<?php if($permisoGuardar){?><input type="button" class="borrar-fecha form-control" value="X" onClick="this.form.var_fecha_nacimiento.value = '';"><?php }?>
-                          </div>
-                        </div>
-                       <!-- <div class="row">
-                          <div class="form-group col-md-3">
-                            <label>*Calle</label>
-                            <input type="text" name="domicilio_calle" id="domicilio_calle" maxlength="255" class="form-control" <?//=$estadoRO?> value="<?//=$ent_domicilio_calle?>" />
-                          </div>
-                          <div class="form-group col-md-3">
-                            <label>*Número</label>
-                            <input type="text" name="domicilio_numero" id="domicilio_numero" maxlength="255" class="form-control" <?//=$estadoRO?> value="<?//=$ent_domicilio_numero?>"  data-a-dec="," data-a-sep="" data-a-sign="" data-v-min="0" data-v-max="999999"/>
-                          </div>
-                          <div class="form-group col-md-3">
-                            <label>*Piso</label>
-                            <input type="text" name="domicilio_piso" id="domicilio_piso" maxlength="255" class="form-control" <?//=$estadoRO?> value="<?//=$ent_domicilio_piso?>" />
-                          </div>
-                          <div class="form-group col-md-3">
-                            <label>*Departamento</label>
-                            <input type="text" name="domicilio_departamento" id="domicilio_departamento" maxlength="255" class="form-control" <?//=$estadoRO?> value="<?//=$ent_domicilio_departamento?>" />
-                          </div>
-						</div>
-                        <div class="row">
-                          <div class="form-group col-md-3">
-                            <label>*Otros datos domicilio</label>
-                            <input type="text" name="domicilio_otros_datos" id="domicilio_otros_datos" maxlength="255" class="form-control" <?//=$estadoRO?> value="<?//=$ent_domicilio_otros_datos?>" />
-                          </div>
-                          <div class="form-group col-md-3">
-                            <label>*Provincia</label>
-                            <select name="domicilio_id_provincia" class="form-control">
-                            	<option value="">[Elegir]</option>
-                            </select>
-                            <?php //armarCombo(cProvincia::obtenerCombo(), "var_fase_id", "form-control", " id=\"var_fase_id\" ".$estadoDis, $pro_fase_id, "[Elegir fase de investigación]");?>       
-                          </div>
-                          <div class="form-group col-md-3">
-                            <label>*Partido</label>
-                            <select name="domicilio_id_partido" class="form-control">
-                            	<option value="">[Elegir]</option>
-                            </select>
-                            <?php //armarCombo(cProvincia::obtenerCombo(), "var_fase_id", "form-control", " id=\"var_fase_id\" ".$estadoDis, $pro_fase_id, "[Elegir fase de investigación]");?>       
-                          </div>
-                          <div class="form-group col-md-3">
-                            <label>*Localidad</label>
-                            <select name="domicilio_id_localidad" class="form-control">
-                            	<option value="">[Elegir]</option>
-                            </select>
-                            <?php //armarCombo(cProvincia::obtenerCombo(), "var_fase_id", "form-control", " id=\"var_fase_id\" ".$estadoDis, $pro_fase_id, "[Elegir fase de investigación]");?>       
-                          </div>
-
-                        </div>-->
-                        <div class="row">
-                          <!--<div class="form-group col-md-3">
-                            <label>Cod. Pos.</label>
-                            <input type="text" name="domicilio_cod_pos" id="domicilio_cod_pos" maxlength="255" class="form-control" <//?=$estadoRO?> value="<?//=$ent_domicilio_cod_pos?>" />
-                          </div>-->
-                          <div class="form-group col-md-3">
-                            <label>*Cobertura de salud</label>
-                            <input type="text" name="var_obra_social" id="var_obra_social" maxlength="255" class="form-control" <?=$estadoRO?> value="<?=$pac_obra_social?>" />
-                          </div>
-                          <!--<div class="form-group col-md-3">
-                            <label>*Ocupación</label>
-                            <input type="text" name="var_ocupacion" id="var_ocupacion" maxlength="255" class="form-control" <?=$estadoRO?> value="<?=$pac_ocupacion?>" />
-                          </div>-->
-                          <div class="form-group col-md-3">
-                            <label>*Médico que deriva</label>
-                            <input type="text" name="var_medico_deriva" id="var_medico_deriva" maxlength="255" class="form-control" <?=$estadoRO?> value="<?=$pac_medico_deriva?>" />
-                          </div>
-                        </div>
-                        <div class="row">
-                          <div class="form-group col-md-3">
-                            <label>*Hospital procedencia</label>&nbsp;
-                            <div class="ayuda">
-                                <img src="images/ayuda.png">
-                              <span class="tooltiptext">
-                                Buscar hospital de procedencia, si no se encuentra, elegir opción OTRO y completar el nombre.
-                              </span>
+                          <?php if($doc_valido || strlen($id)>0){?>
+                              <div class="form-group col-md-3 col-xs-12">
+                                    <label>*Tipo documento</label>
+                                    <?php armarCombo(cTipoDocumento::obtenerCombo(array(ST_ACTIVO)), "var_tid_id", "form-control", "id=\"var_tid_id\"".$estadoRO, $pac_tid_id, "[Elegir tipo de documento]");?>
+                              </div>
+                              <div class="form-inline col-md-3">
+                                <label>*Fecha ingreso</label><br>
+                                <input type="text" readonly="readonly" size="20" id="var_fecha_ingreso" style="z-index:100;position:relative;max-width:99%;background-color:#FFFFFF" name="var_fecha_ingreso" class="form-control" value="<?=convertirFechaComprimido($pac_fecha_ingreso)?>">&nbsp;<?php if($permisoGuardar){?><input type="button" class="borrar-fecha form-control" value="X" onClick="this.form.var_fecha_ingreso.value = '';"><?php }?>
+                              </div>
+                              <div class="form-group col-md-3">
+                                <label>*Iniciales</label>
+                                <input type="text" name="var_iniciales" id="var_iniciales" maxlength="8" class="form-control" value="<?=$pac_iniciales?>"  />
+                              </div>
                             </div>
-                            &nbsp;Elegir hospital:
-                            <?php 	armarComboOtro(cHospital::obtenerCombo(), "pac_reh_id", "form-control", " id=\"pac_reh_id\" ".$estadoDis, $pac_reh_id, "[Elegir Hospital]");?>
-                            <div id="capa_otro_hospital">
-                                <label>*Otro hospital</label>
-                                <input type="text" class="form-control" name="otro_hospital" id="otro_hospital" placeholder="Ingrese hospital" maxlength="255">
+                            <div class="row">
+                              <div class="form-group col-md-3">
+                                <label>*Nombre</label>
+                                <input type="text" name="var_nombre" id="var_nombre" maxlength="255" class="form-control" <?=$estadoRO?> value="<?=$pac_nombre?>" />
+                              </div>
+                              <div class="form-group col-md-3">
+                                <label>Segundo nombre</label>
+                                <input type="text" name="var_segundo_nombre" id="var_segundo_nombre" maxlength="255" class="form-control" <?=$estadoRO?> value="<?=$pac_segundo_nombre?>" />
+                              </div>
+                              <div class="form-group col-md-3">
+                                <label>*Apellido</label>
+                                <input type="text" name="var_apellido" id="var_apellido" maxlength="255" class="form-control" <?=$estadoRO?> value="<?=$pac_apellido?>" />
+                              </div>
+                              <div class="form-group col-md-3">
+                                <label>Segundo apellido</label>
+                                <input type="text" name="var_segundo_apellido" id="var_segundo_apellido" maxlength="255" class="form-control" <?=$estadoRO?> value="<?=$pac_segundo_apellido?>" />
+                              </div>
                             </div>
-                          </div>
-                          <div class="form-group col-md-9">
-                            <label>Observaciones</label>&nbsp;
-                            <textarea  name="var_observaciones" rows="5" id="var_observaciones" class="form-control" <?=$estadoRO?>><?=$pac_observaciones?></textarea>
-                            <label>
-                                <div class="letra_help" style="float:left">Caracteres disponibles:&nbsp;</div><div id="max_caracteres_observaciones" class="letra_help" style="float:left"></div>
-                            </label>
-                          </div>
-                        </div>
-                       <!--<div class="row">
-                            <div class="form-group col-md-12 col-lg-12 col-sm-12 col-xs-12">
-                                <h3 class="subtitulo_generico">Contactos</h3>
+                            <div class="row">
+                              <div class="form-group col-md-3">
+                                <label>Nombre autopercibido</label>
+                                <input type="text" name="var_alias" id="var_alias" maxlength="255" class="form-control" <?=$estadoRO?> value="<?=$pac_alias?>" />
+                              </div>
+                              <div class="form-group col-md-3">
+                                <label>*Sexo</label>
+                                <?php armarCombo(cSexo::obtenerCombo(), "var_sex_id", "form-control", $estadoDis, $pac_sex_id, "[Elegir]");?>
+                              </div>
+                              <div class="form-group col-md-3">
+                                <label>*Género</label>
+                                <?php armarCombo(cGenero::obtenerCombo(), "var_gen_id", "form-control", $estadoDis, $pac_gen_id, "[Elegir]");?>
+                              </div>
+                              <div class="form-inline col-md-3">
+                                <label>*Fecha nacimiento</label><br>
+                                <input type="text" readonly="readonly" size="20" id="var_fecha_nacimiento" style="z-index:100;position:relative;max-width:99%;background-color:#FFFFFF" name="var_fecha_nacimiento" class="form-control" value="<?=convertirFechaComprimido($pac_fecha_nacimiento)?>">&nbsp;<?php if($permisoGuardar){?><input type="button" class="borrar-fecha form-control" value="X" onClick="this.form.var_fecha_nacimiento.value = '';"><?php }?>
+                              </div>
                             </div>
-                       </div>
-                       <div class="row">
-                          <div class="form-group col-md-3">
-                            <label>Teléfono Celular</label>
-                            <input type="text" name="telefono_celular" id="telefono_celular" maxlength="255" class="form-control" <?//=$estadoRO?> value="<?//=$telefono_celular?>" />
-                            <label>Observaciones</label>
-                            <textarea  name="obs_celular" style="resize:none" rows="3" id="obs_celular" class="form-control" <?//=$estadoRO?>><?//=$obs_celular?></textarea>
-                            <label>
-                                <div class="letra_help" style="float:left">Caracteres disponibles:&nbsp;</div><div id="max_obs_celular" class="letra_help" style="float:left"></div>
-                            </label>
-                          </div>
-                          <div class="form-group col-md-3">
-                            <label>Teléfono Casa</label>
-                            <input type="text" name="telefono_casa" id="telefono_casa" maxlength="255" class="form-control" <?//=$estadoRO?> value="<?//=$telefono_casa?>" />
-                            <label>Observaciones</label>
-                            <textarea  name="obs_casa" style="resize:none" rows="3" id="obs_casa" class="form-control" <?//=$estadoRO?>><?//=$obs_casa?></textarea>
-                            <label>
-                                <div class="letra_help" style="float:left">Caracteres disponibles:&nbsp;</div><div id="max_obs_casa" class="letra_help" style="float:left"></div>
-                            </label>
-                          </div>
-                          <div class="form-group col-md-2">
-                            <label>Otro teléfono</label>
-                            <input type="text" name="telefono_contacto" id="telefono_contacto" maxlength="255" class="form-control" <?//=$estadoRO?> value="<?//=$telefono_contacto?>" />
-                            <label>Observaciones</label>
-                            <textarea  name="obs_contacto" style="resize:none" rows="3" id="obs_contacto" class="form-control" <?//=$estadoRO?>><?//=$obs_contacto?></textarea>
-                            <label>
-                                <div class="letra_help" style="float:left">Caracteres disponibles:&nbsp;</div><div id="max_obs_contacto" class="letra_help" style="float:left"></div>
-                            </label>
-                          </div>
-                          <div class="form-group col-md-2">
-                            <label>Email</label>
-                            <input type="text" name="email_contacto" id="email_contacto" maxlength="255" class="form-control" <?//=$estadoRO?> value="<?//=$email_contacto?>" />
-                            <label>Observaciones</label>
-                            <textarea  name="obs_email" style="resize:none" rows="3" id="obs_email" class="form-control" <?//=$estadoRO?>><?//=$obs_email?></textarea>
-                            <label>
-                                <div class="letra_help" style="float:left">Caracteres disponibles:&nbsp;</div><div id="max_obs_email" class="letra_help" style="float:left"></div>
-                            </label>
-                            <div class="form-inline"><label>¿Desea recibir e-mails de FH?</label>&nbsp;
-                            <select name="var_recibir_email" id="var_recibir_email" class="form-control" <?//=$estadoDis?>>
-                            	<option value=""  <?//=($pac_recibir_email==="" || is_null($pac_recibir_email) ? "selected" : "")?>>[Elegir]</option>
-                                <option value="1" <?//=($pac_recibir_email==1 ? "selected" : "")?>>Sí</option>
-                                <option value="0" <?//=($pac_recibir_email===0 && !is_null($pac_recibir_email) ? "selected" : "")?>>No</option>
-                            </select>
-							</div>
-                          </div>
-                          <div class="form-group col-md-2">
-                            <label>Redes sociales</label>
-                            <input type="text" name="redes_sociales" id="redes_sociales" maxlength="255" class="form-control" <?//=$estadoRO?> value="<?//=$redes_sociales?>" />
-                            <label>Observaciones</label>
-                            <textarea  name="obs_redes" style="resize:none" rows="3" id="obs_redes" class="form-control" <?//=$estadoRO?>><?//=$obs_redes?></textarea>
-                            <label>
-                                <div class="letra_help" style="float:left">Caracteres disponibles:&nbsp;</div><div id="max_obs_redes" class="letra_help" style="float:left"></div>
-                            </label>
-                          </div>
-                       </div>-->
-                        <div class="row">
-                        <?php if($permisoGuardar){?>
-                            <button type="button" class="btn boton-generico btn-primary" onClick="validarFormulario('','')">Guardar</button>
-                        <?php }?>
-                        </div>
+                           <!-- <div class="row">
+                              <div class="form-group col-md-3">
+                                <label>*Calle</label>
+                                <input type="text" name="domicilio_calle" id="domicilio_calle" maxlength="255" class="form-control" <?//=$estadoRO?> value="<?//=$ent_domicilio_calle?>" />
+                              </div>
+                              <div class="form-group col-md-3">
+                                <label>*Número</label>
+                                <input type="text" name="domicilio_numero" id="domicilio_numero" maxlength="255" class="form-control" <?//=$estadoRO?> value="<?//=$ent_domicilio_numero?>"  data-a-dec="," data-a-sep="" data-a-sign="" data-v-min="0" data-v-max="999999"/>
+                              </div>
+                              <div class="form-group col-md-3">
+                                <label>*Piso</label>
+                                <input type="text" name="domicilio_piso" id="domicilio_piso" maxlength="255" class="form-control" <?//=$estadoRO?> value="<?//=$ent_domicilio_piso?>" />
+                              </div>
+                              <div class="form-group col-md-3">
+                                <label>*Departamento</label>
+                                <input type="text" name="domicilio_departamento" id="domicilio_departamento" maxlength="255" class="form-control" <?//=$estadoRO?> value="<?//=$ent_domicilio_departamento?>" />
+                              </div>
+                            </div>
+                            <div class="row">
+                              <div class="form-group col-md-3">
+                                <label>*Otros datos domicilio</label>
+                                <input type="text" name="domicilio_otros_datos" id="domicilio_otros_datos" maxlength="255" class="form-control" <?//=$estadoRO?> value="<?//=$ent_domicilio_otros_datos?>" />
+                              </div>
+                              <div class="form-group col-md-3">
+                                <label>*Provincia</label>
+                                <select name="domicilio_id_provincia" class="form-control">
+                                    <option value="">[Elegir]</option>
+                                </select>
+                                <?php //armarCombo(cProvincia::obtenerCombo(), "var_fase_id", "form-control", " id=\"var_fase_id\" ".$estadoDis, $pro_fase_id, "[Elegir fase de investigación]");?>       
+                              </div>
+                              <div class="form-group col-md-3">
+                                <label>*Partido</label>
+                                <select name="domicilio_id_partido" class="form-control">
+                                    <option value="">[Elegir]</option>
+                                </select>
+                                <?php //armarCombo(cProvincia::obtenerCombo(), "var_fase_id", "form-control", " id=\"var_fase_id\" ".$estadoDis, $pro_fase_id, "[Elegir fase de investigación]");?>       
+                              </div>
+                              <div class="form-group col-md-3">
+                                <label>*Localidad</label>
+                                <select name="domicilio_id_localidad" class="form-control">
+                                    <option value="">[Elegir]</option>
+                                </select>
+                                <?php //armarCombo(cProvincia::obtenerCombo(), "var_fase_id", "form-control", " id=\"var_fase_id\" ".$estadoDis, $pro_fase_id, "[Elegir fase de investigación]");?>       
+                              </div>
+    
+                            </div>-->
+                            <div class="row">
+                              <!--<div class="form-group col-md-3">
+                                <label>Cod. Pos.</label>
+                                <input type="text" name="domicilio_cod_pos" id="domicilio_cod_pos" maxlength="255" class="form-control" <//?=$estadoRO?> value="<?//=$ent_domicilio_cod_pos?>" />
+                              </div>-->
+                              <div class="form-group col-md-3">
+                                <label>*Cobertura de salud</label>
+                                <input type="text" name="var_obra_social" id="var_obra_social" maxlength="255" class="form-control" <?=$estadoRO?> value="<?=$pac_obra_social?>" />
+                              </div>
+                              <!--<div class="form-group col-md-3">
+                                <label>*Ocupación</label>
+                                <input type="text" name="var_ocupacion" id="var_ocupacion" maxlength="255" class="form-control" <?=$estadoRO?> value="<?=$pac_ocupacion?>" />
+                              </div>-->
+                              <div class="form-group col-md-3">
+                                <label>*Médico que deriva</label>
+                                <input type="text" name="var_medico_deriva" id="var_medico_deriva" maxlength="255" class="form-control" <?=$estadoRO?> value="<?=$pac_medico_deriva?>" />
+                              </div>
+                            </div>
+                            <div class="row">
+                              <div class="form-group col-md-3">
+                                <label>*Hospital procedencia</label>&nbsp;
+                                <div class="ayuda">
+                                    <img src="images/ayuda.png">
+                                  <span class="tooltiptext">
+                                    Buscar hospital de procedencia, si no se encuentra, elegir opción OTRO y completar el nombre.
+                                  </span>
+                                </div>
+                                &nbsp;Elegir hospital:
+                                <?php 	armarComboOtro(cHospital::obtenerCombo(), "pac_reh_id", "form-control", " id=\"pac_reh_id\" ".$estadoDis, $pac_reh_id, "[Elegir Hospital]");?>
+                                <div id="capa_otro_hospital">
+                                    <label>*Otro hospital</label>
+                                    <input type="text" class="form-control" name="otro_hospital" id="otro_hospital" placeholder="Ingrese hospital" maxlength="255">
+                                </div>
+                              </div>
+                              <div class="form-group col-md-9">
+                                <label>Observaciones</label>&nbsp;
+                                <textarea  name="var_observaciones" rows="5" id="var_observaciones" class="form-control" <?=$estadoRO?>><?=$pac_observaciones?></textarea>
+                                <label>
+                                    <div class="letra_help" style="float:left">Caracteres disponibles:&nbsp;</div><div id="max_caracteres_observaciones" class="letra_help" style="float:left"></div>
+                                </label>
+                              </div>
+                            </div>
+                           <!--<div class="row">
+                                <div class="form-group col-md-12 col-lg-12 col-sm-12 col-xs-12">
+                                    <h3 class="subtitulo_generico">Contactos</h3>
+                                </div>
+                           </div>
+                           <div class="row">
+                              <div class="form-group col-md-3">
+                                <label>Teléfono Celular</label>
+                                <input type="text" name="telefono_celular" id="telefono_celular" maxlength="255" class="form-control" <?//=$estadoRO?> value="<?//=$telefono_celular?>" />
+                                <label>Observaciones</label>
+                                <textarea  name="obs_celular" style="resize:none" rows="3" id="obs_celular" class="form-control" <?//=$estadoRO?>><?//=$obs_celular?></textarea>
+                                <label>
+                                    <div class="letra_help" style="float:left">Caracteres disponibles:&nbsp;</div><div id="max_obs_celular" class="letra_help" style="float:left"></div>
+                                </label>
+                              </div>
+                              <div class="form-group col-md-3">
+                                <label>Teléfono Casa</label>
+                                <input type="text" name="telefono_casa" id="telefono_casa" maxlength="255" class="form-control" <?//=$estadoRO?> value="<?//=$telefono_casa?>" />
+                                <label>Observaciones</label>
+                                <textarea  name="obs_casa" style="resize:none" rows="3" id="obs_casa" class="form-control" <?//=$estadoRO?>><?//=$obs_casa?></textarea>
+                                <label>
+                                    <div class="letra_help" style="float:left">Caracteres disponibles:&nbsp;</div><div id="max_obs_casa" class="letra_help" style="float:left"></div>
+                                </label>
+                              </div>
+                              <div class="form-group col-md-2">
+                                <label>Otro teléfono</label>
+                                <input type="text" name="telefono_contacto" id="telefono_contacto" maxlength="255" class="form-control" <?//=$estadoRO?> value="<?//=$telefono_contacto?>" />
+                                <label>Observaciones</label>
+                                <textarea  name="obs_contacto" style="resize:none" rows="3" id="obs_contacto" class="form-control" <?//=$estadoRO?>><?//=$obs_contacto?></textarea>
+                                <label>
+                                    <div class="letra_help" style="float:left">Caracteres disponibles:&nbsp;</div><div id="max_obs_contacto" class="letra_help" style="float:left"></div>
+                                </label>
+                              </div>
+                              <div class="form-group col-md-2">
+                                <label>Email</label>
+                                <input type="text" name="email_contacto" id="email_contacto" maxlength="255" class="form-control" <?//=$estadoRO?> value="<?//=$email_contacto?>" />
+                                <label>Observaciones</label>
+                                <textarea  name="obs_email" style="resize:none" rows="3" id="obs_email" class="form-control" <?//=$estadoRO?>><?//=$obs_email?></textarea>
+                                <label>
+                                    <div class="letra_help" style="float:left">Caracteres disponibles:&nbsp;</div><div id="max_obs_email" class="letra_help" style="float:left"></div>
+                                </label>
+                                <div class="form-inline"><label>¿Desea recibir e-mails de FH?</label>&nbsp;
+                                <select name="var_recibir_email" id="var_recibir_email" class="form-control" <?//=$estadoDis?>>
+                                    <option value=""  <?//=($pac_recibir_email==="" || is_null($pac_recibir_email) ? "selected" : "")?>>[Elegir]</option>
+                                    <option value="1" <?//=($pac_recibir_email==1 ? "selected" : "")?>>Sí</option>
+                                    <option value="0" <?//=($pac_recibir_email===0 && !is_null($pac_recibir_email) ? "selected" : "")?>>No</option>
+                                </select>
+                                </div>
+                              </div>
+                              <div class="form-group col-md-2">
+                                <label>Redes sociales</label>
+                                <input type="text" name="redes_sociales" id="redes_sociales" maxlength="255" class="form-control" <?//=$estadoRO?> value="<?//=$redes_sociales?>" />
+                                <label>Observaciones</label>
+                                <textarea  name="obs_redes" style="resize:none" rows="3" id="obs_redes" class="form-control" <?//=$estadoRO?>><?//=$obs_redes?></textarea>
+                                <label>
+                                    <div class="letra_help" style="float:left">Caracteres disponibles:&nbsp;</div><div id="max_obs_redes" class="letra_help" style="float:left"></div>
+                                </label>
+                              </div>
+                           </div>-->
+                            <div class="row">
+                            <?php if($permisoGuardar){?>
+                                <button type="button" class="btn boton-generico btn-primary" onClick="validarFormulario('','')">Guardar</button>
+                            <?php }?>
+                            </div>
+                          <?php }//end if $doc_valido?>
                             
 							<?php if($permisoVerVisitasPacientes && !empty($id)){?>
 							<a name="visitas"></a>
@@ -652,7 +765,7 @@ if(!empty($id)){
 
 
                                                     <td><p class="texto-publicacion letra-gris-oscuro"><?=$rVisitas->campo('pro_titulo_breve',$i)?></p></td>
-                                                    <td><p class="texto-publicacion letra-gris-oscuro"><?=(is_null($rVisitas->campo('cron_laboratorio',$i)) || $rVisitas->campo('cron_laboratorio',$i)==0 ? "No":"Sí")?></p></td>
+                                                    <td><p class="texto-publicacion letra-gris-oscuro"><?=((is_null($rVisitas->campo('cron_laboratorio',$i)) || $rVisitas->campo('cron_laboratorio',$i)==0) && (is_null($rVisitas->campo('provis_laboratorio',$i)) || $rVisitas->campo('provis_laboratorio',$i)==0)  ? "No":"Sí")?></p></td>
                                                   </tr>
                                                   <?php }?>
                                                 </tbody>

@@ -262,9 +262,8 @@ class cProtocolo
 		$sql="SELECT PRO.*, PPAT.propat_emp_id, PINV.proinv_inv_id, PAT.emp_razon_social, PAT.emp_cuit, INV.inv_nombre, INV.inv_apellido, ASTPRO.ast_type, PPAT.propat_emp_id empresa_financiador, PCRO.propat_emp_id empresa_cro, PSPO.propat_emp_id empresa_sponsor";
 		$sql_from=" FROM protocolo PRO INNER JOIN asset ASTPRO ON (ASTPRO.ast_id=PRO.pro_ast_id) LEFT JOIN protocolo_patrocinador PPAT ON (PPAT.propat_pro_id=PRO.pro_id AND PPAT.propat_trolpat_id=".TIPO_ROL_FINANCIADOR.") LEFT JOIN protocolo_patrocinador PCRO ON (PCRO.propat_pro_id=PRO.pro_id AND PCRO.propat_trolpat_id=".TIPO_ROL_CRO.") LEFT JOIN protocolo_patrocinador PSPO ON (PSPO.propat_pro_id=PRO.pro_id AND PSPO.propat_trolpat_id=".TIPO_ROL_SPONSOR.") LEFT JOIN protocolo_investigador PINV ON (PINV.proinv_pro_id=PRO.pro_id) LEFT JOIN investigador INV ON (INV.inv_id=PINV.proinv_inv_id) LEFT JOIN empresa PAT ON (PAT.emp_id=PPAT.propat_emp_id)";
 		$sql_where=" WHERE PRO.pro_id='$pro_id' AND PRO.pro_sp_id<>".ST_ELIMINAR;
-
 		if(strlen($pac_id)>0){
-			$sql.=",PPAC.*, PVISSCR.provis_fecha_agenda fecha_screening, PVISBASAL.provis_fecha_agenda fecha_basal";
+			$sql.=",PPAC.*, PVISSCR.provis_fecha_agenda fecha_screening, PVISBASAL.provis_fecha_agenda fecha_basal, PVISBASAL.provis_fecha_realizada fecha_basal_realizada, CASE PPAC.propac_spp_id WHEN ".ST_PP_SCR." THEN PVISSCR.provis_med_id WHEN ".ST_PP_PROTOCOLO." THEN PVISSCR.provis_med_id ELSE '' END as medico_id";
 			$sql_from.=" LEFT JOIN protocolo_paciente PPAC ON (PPAC.propac_pro_id=PRO.pro_id AND PPAC.propac_pac_id='$pac_id')";
 			$sql_from.=" LEFT JOIN protocolo_paciente_visita PVISSCR ON (PVISSCR.provis_pro_id=PPAC.propac_pro_id AND PVISSCR.provis_pac_id=PPAC.propac_pac_id AND PVISSCR.provis_tiv_id=".TIPO_VIS_SCR.")
 						 LEFT JOIN protocolo_paciente_visita PVISBASAL ON (PVISBASAL.provis_pro_id=PPAC.propac_pro_id AND PVISBASAL.provis_pac_id=PPAC.propac_pac_id AND PVISBASAL.provis_tiv_id=".TIPO_VIS_BASAL.")";
@@ -352,6 +351,10 @@ class cProtocolo
 		array_push($vecCamposInt,"var_ventana_max");
 		array_push($vecCamposInt,"var_ventana_min");
 
+		if(intval($camposPost["var_tiv_id"],10)==TIPO_VIS_BASAL){
+			$camposPost["var_dias_basal"]=0;
+		}
+
 			foreach($camposPost as $key => $value) {
 			  if(substr($key,0,4)=="var_"){
 				if(in_array($key,$vecCamposInt)){
@@ -388,21 +391,42 @@ class cProtocolo
 	      array_push($vecCamposSet,"cron_crvn_id='".$cron_crvn_id."'");
 
 		if(count($vecCamposSet)>0){
+			$sql="SELECT cron_id FROM cronograma_visita C WHERE cron_pro_id='$pro_id' AND cron_tiv_id=".intval($camposPost["var_tiv_id"],10)." AND cron_tiv_id IN (".TIPO_VIS_SCR.",".TIPO_VIS_BASAL.")";
+			if(strlen($cron_id)>0){
+				$sql.=" AND cron_id<>'$cron_id'";
+			}
+			//echo($sql);
+			$rVisExiste=cComando::consultar($sql);
+			if($rVisExiste->cantidad()==0){
+				$cron_existe=0;
+			} else {
+				$cron_existe=$rVisExiste->campo('cron_id',0);
+			}
 			if(empty($cron_id)){
-				$sql="INSERT INTO cronograma_visita (cron_pro_id) VALUES ('$pro_id')";
-				$status1 = cComando::ejecutar($sql, INSERT, $cron_id);
-				
-				if($status1==FALSE){		
+				if($cron_existe==0){
+					$sql="INSERT INTO cronograma_visita (cron_pro_id) VALUES ('$pro_id')";
+					$status1 = cComando::ejecutar($sql, INSERT, $cron_id);
+					
+					if($status1==FALSE){		
+						cComando::rollback();
+						return -1;
+					}
+				} else {
 					cComando::rollback();
 					return -1;
-				}			
+				}
 			}
 			if(!empty($cron_id)){
-				$sql="UPDATE cronograma_visita SET ".implode(",",$vecCamposSet)." WHERE cron_id='".$cron_id."'";
-				$status2 = cComando::ejecutar($sql, UPDATE, $id);
-				if($status2==FALSE){
+				if($cron_existe==0){
+					$sql="UPDATE cronograma_visita SET ".implode(",",$vecCamposSet)." WHERE cron_id='".$cron_id."'";
+					$status2 = cComando::ejecutar($sql, UPDATE, $id);
+					if($status2==FALSE){
+						cComando::rollback();
+						return -1;
+					}
+				} else {
 					cComando::rollback();
-					return -1;
+					return -1;	
 				}
 			} else {
 				cComando::rollback();
@@ -429,6 +453,12 @@ class cProtocolo
 		$rDatos = cComando::consultar($sql);
 		return $rDatos;
 	}
+	static function obtenerStatusProtocoloPaciente($id_status)
+	{
+		$sql = "SELECT * FROM status_protocolo_paciente WHERE spp_id = '$id_status'";
+		$rDatos = cComando::consultar($sql);
+		return $rDatos;
+	}
 	static function obtenerComboStatus(){
 		$sql="SELECT sp_id, sp_descripcion FROM status_protocolo WHERE sp_status=1 ORDER BY sp_descripcion";
 		return cComando::consultar($sql);
@@ -437,8 +467,8 @@ class cProtocolo
 		$sql="SELECT pro_id, pro_titulo_breve FROM protocolo ORDER BY pro_titulo_breve";
 		return cComando::consultar($sql);
 	}
-	static function obtenerComboNotPaciente($pac_id){
-		$sql="SELECT pro_id, pro_titulo_breve FROM protocolo LEFT JOIN protocolo_paciente ON (pro_id=propac_pro_id AND propac_pac_id='$pac_id') WHERE propac_pro_id IS NULL ORDER BY pro_titulo_breve";
+	static function obtenerComboNotPaciente($pac_id,$vecStatus){
+		$sql="SELECT pro_id, pro_titulo_breve FROM protocolo LEFT JOIN protocolo_paciente ON (pro_id=propac_pro_id AND propac_pac_id='$pac_id') WHERE propac_pro_id IS NULL AND pro_sp_id IN (".implode(",",$vecStatus).") ORDER BY pro_titulo_breve";
 		return cComando::consultar($sql);
 	}
 	static function obtenerComboPaciente($pac_id){

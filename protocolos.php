@@ -118,7 +118,6 @@ $rPro=cProtocolo::obtener($inicio, $tamanioPagina, $buscar_protocolo, $vecEstado
 
 <? include_once("includes/head.php");?>
 <script language="javascript" charset="utf-8">
-	var cant_camaras=0;//valor inicial para selector de camaras	
 	function validarFormulario(varDest, varMenu){
 		varError=0;
 		document.datos.dest.value=varDest;
